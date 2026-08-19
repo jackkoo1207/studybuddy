@@ -298,7 +298,7 @@
       <textarea id="inNote" placeholder="例如：寶寶很好動、坐不住，愛到處爬；有時怕生，但熟悉後愛笑愛互動…"></textarea>
 
       <div class="row">
-        <button onclick="submitAssessment()">提交評估 →</button>
+        <button id="btnSubmitQ" onclick="submitAssessment()">提交評估 →</button>
         <button class="ghost" onclick="go('login')">返回</button>
       </div>
     </div>
@@ -751,10 +751,14 @@ function computeAssessment(){
 }
 function submitAssessment(){
   if(!computeAssessment()){ alert("請先填寫寶寶出生日期"); return; }
-  generateTeachingPlan().then(function(){ // DeepSeek 生成；失敗自動退回本地規則版
+  var b=document.getElementById('btnSubmitQ');
+  if(b){ b.disabled=true; b.textContent="⏳ 正在生成課程計畫（DeepSeek）…"; }
+  return generateTeachingPlan().then(function(){ // DeepSeek 生成；失敗自動退回本地規則版
     renderPlan(); renderMistakes(); renderSched();
     go('dash'); tab('plan');
     saveAnswers(); saveSnapshot(); savePlan(); // 立即持久化（PostgreSQL）
+  }).finally(function(){
+    if(b){ b.disabled=false; b.textContent="提交評估 →"; }
   });
 }
 
@@ -812,7 +816,9 @@ function generateTeachingPlan(){
     dosage:(S.plan&&S.plan.dosage)||{},
     personality:(S.plan&&S.plan.personality)||{},
     content_plan:(S.plan&&S.plan.content_plan)||{}};
-  return apiFetch('POST','/api/generate-plan',profile).then(function(res){
+  var ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
+  var timer=ctrl?setTimeout(function(){ctrl.abort();},60000):null; // 60s 上限：絕不卡死
+  return apiFetch('POST','/api/generate-plan',profile,ctrl).then(function(res){
     if(!res.ok)throw new Error((res.j&&res.j.error)||'generate-plan failed');
     var p=res.j.plan;
     if(!p||!p.weeks||p.weeks.length!==4)throw new Error('bad plan from server');
@@ -823,12 +829,14 @@ function generateTeachingPlan(){
     generateTeachingPlanLocal();   // 伺服器／DeepSeek 不可用 → 本地規則版
     S.plan_source='local';
     return S.teachingPlan;
-  });
+  }).finally(function(){ if(timer)clearTimeout(timer); });
 }
 function renderPlan(){
   var lvl=S.level, dos=S.plan&&S.plan.dosage, tp=S.teachingPlan;
   document.getElementById('planTitle').textContent=(S.baby||'寶寶')+' 的教學計畫';
+  var srcNote = (S.plan_source==='local') ? '<div class="note">⚠️ DeepSeek 暫時無法連線，此計畫為本地規則版（可於「設定 → 重新填寫問卷」重新生成）。</div>' : '';
   document.getElementById('planSub').innerHTML=
+    srcNote+
     '英語等級 <span class="pill strong">'+lvl+'</span> '+LEVEL_NAME[lvl]
     +(dos?' ｜ 每週 '+dos.frequency_per_week+' 次 × 每次 '+dos.session_min+' 分':'')
     +(tp?' ｜ 計畫生成於 '+tp.generated_at+'（首次註冊生成一次，登入不會重算；課後 agent 可依學習速度微調，預設不調整）':'');
@@ -1127,8 +1135,9 @@ function sendChat(){ sendStudentText(); }
 /* ---- 多用戶 API（PostgreSQL 伺服器端；token 存 localStorage，可跨裝置同步） ---- */
 var API={token:null,user:null};
 try{ API.token=localStorage.getItem('sb_token')||null; API.user=localStorage.getItem('sb_user')||null; }catch(e){}
-function apiFetch(method,path,body){
+function apiFetch(method,path,body,signal){
   var opt={method:method,headers:{'Content-Type':'application/json'}};
+  if(signal)opt.signal=signal;
   if(API.token)opt.headers['Authorization']='Bearer '+API.token;
   if(body!==undefined)opt.body=JSON.stringify(body);
   return fetch(path,opt).then(function(r){ return r.json().then(function(j){ return {ok:r.ok,status:r.status,j:j}; }); });

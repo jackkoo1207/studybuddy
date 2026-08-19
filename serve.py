@@ -5,7 +5,7 @@
 #   ELEVENLABS_API_KEY / ElEVENLABS_TOKEN / ELEVENLABS_TOKEN   ElevenLabs key（擇一）
 #   DATABASE_PRIVATE_URL 或 DATABASE_URL                        Postgres 連線（Railway: ${{ Postgres.DATABASE_PRIVATE_URL }}）
 #   PORT / SB_PORT                                             監聽埠（Railway 注入 PORT）
-import http.server, os, json, socketserver, sys, re, hashlib, hmac, secrets, urllib.parse, urllib.request
+import http.server, os, json, socketserver, sys, re, hashlib, hmac, secrets, urllib.parse, urllib.request, threading
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
@@ -175,7 +175,7 @@ def generate_plan_with_deepseek(profile):
         headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
         method='POST')
     try:
-        r = json.loads(urllib.request.urlopen(req, timeout=90).read().decode())
+        r = json.loads(urllib.request.urlopen(req, timeout=45).read().decode())
         content = r['choices'][0]['message']['content']
         plan = json.loads(content)
         if not plan.get('weeks') or len(plan['weeks']) != 4:
@@ -221,6 +221,7 @@ def make_convai_signed_url():
 # ---------- Postgres ----------
 _db = None
 _db_err = ''
+DB_LOCK = threading.RLock()  # pg8000 連線非 thread-safe；所有 DB 操作需持鎖（DeepSeek 呼叫不持鎖）
 
 def db():
     global _db, _db_err
@@ -325,22 +326,23 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return
         if path == '/api/state':
             try:
-                c = self._require_db()
-                if c is None:
-                    return
-                uid = user_by_token(c, self._bearer())
-                if uid is None:
-                    self._send_json(401, {'error': 'unauthorized'})
-                    return
-                with _cur(c) as cur:
-                    cur.execute('SELECT q_key,q_value FROM answers WHERE user_id=%s', (uid,))
-                    answers = {k: v for k, v in cur.fetchall()}
-                    cur.execute('SELECT snapshot FROM snapshots WHERE user_id=%s', (uid,))
-                    row = cur.fetchone()
-                    snapshot = row[0] if row else None
-                    cur.execute('SELECT plan_json, schedule_json FROM plans WHERE user_id=%s', (uid,))
-                    row = cur.fetchone()
-                    plan = {'plan': row[0], 'schedule': row[1]} if row else None
+                with DB_LOCK:
+                    c = self._require_db()
+                    if c is None:
+                        return
+                    uid = user_by_token(c, self._bearer())
+                    if uid is None:
+                        self._send_json(401, {'error': 'unauthorized'})
+                        return
+                    with _cur(c) as cur:
+                        cur.execute('SELECT q_key,q_value FROM answers WHERE user_id=%s', (uid,))
+                        answers = {k: v for k, v in cur.fetchall()}
+                        cur.execute('SELECT snapshot FROM snapshots WHERE user_id=%s', (uid,))
+                        row = cur.fetchone()
+                        snapshot = row[0] if row else None
+                        cur.execute('SELECT plan_json, schedule_json FROM plans WHERE user_id=%s', (uid,))
+                        row = cur.fetchone()
+                        plan = {'plan': row[0], 'schedule': row[1]} if row else None
                 self._send_json(200, {'answers': answers, 'snapshot': snapshot, 'plan': plan})
             except Exception as e:
                 sys.stderr.write('[serve.py] /api/state error: %s\n' % e)
@@ -364,11 +366,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if path == '/api/convai-url':
             # 需要登入（DB 未設定時放行，供本地開發）；不依賴 DB
             if DB_URL:
-                c = db()
-                if c is None:
-                    self._send_json(503, {'error': 'database not configured'}); return
-                if user_by_token(c, self._bearer()) is None:
-                    self._send_json(401, {'error': 'unauthorized'}); return
+                with DB_LOCK:
+                    c = db()
+                    if c is None:
+                        self._send_json(503, {'error': 'database not configured'}); return
+                    if user_by_token(c, self._bearer()) is None:
+                        self._send_json(401, {'error': 'unauthorized'}); return
             url, err = make_convai_signed_url()
             if err:
                 self._send_json(500, {'error': err})
@@ -376,68 +379,69 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_json(200, {'url': url, 'voice_id': _voice_id() or None})
             return
         if path == '/api/generate-plan':
-            c = self._require_db()
-            if c is None:
-                return
-            uid = user_by_token(c, self._bearer())
-            if uid is None:
-                self._send_json(401, {'error': 'unauthorized'}); return
+            with DB_LOCK:
+                c = db()
+                if c is None:
+                    self._send_json(503, {'error': 'database not configured'}); return
+                if user_by_token(c, self._bearer()) is None:
+                    self._send_json(401, {'error': 'unauthorized'}); return
             body = self._read_json()
             if not isinstance(body, dict):
                 self._send_json(400, {'error': 'bad request'}); return
-            plan, err = generate_plan_with_deepseek(body)
+            plan, err = generate_plan_with_deepseek(body)  # 慢呼叫：不持鎖
             if err:
                 self._send_json(502, {'error': err}); return
             plan['generated_at'] = datetime.now(timezone.utc).strftime('%Y-%m-%d')
             plan['level'] = body.get('level') or ''
             self._send_json(200, {'plan': plan, 'source': 'deepseek', 'model': DEEPSEEK_MODEL})
             return
-        c = self._require_db()
-        if c is None:
-            return
-        if path == '/api/register':
-            body = self._read_json()
-            if not body or not isinstance(body, dict):
-                self._send_json(400, {'error': 'bad request'}); return
-            u = (body.get('username') or '').strip()
-            p = body.get('password') or ''
-            if not re.fullmatch(r'[\w-]{2,32}', u):
-                self._send_json(400, {'error': '用戶名需 2–32 位（字母、數字、_、-）'}); return
-            if len(p) < 6:
-                self._send_json(400, {'error': '密碼至少 6 位'}); return
-            with _cur(c) as cur:
-                cur.execute('SELECT id FROM users WHERE username=%s', (u,))
-                if cur.fetchone():
-                    self._send_json(409, {'error': '此用戶名已存在，請直接登入'}); return
-                cur.execute('INSERT INTO users(username,pass_hash) VALUES(%s,%s) RETURNING id', (u, hash_pw(p)))
-                uid = cur.fetchone()[0]
-                token = new_session(cur, uid)
-            c.commit()
-            self._send_json(201, {'token': token, 'username': u})
-            return
-        if path == '/api/login':
-            body = self._read_json()
-            if not body or not isinstance(body, dict):
-                self._send_json(400, {'error': 'bad request'}); return
-            u = (body.get('username') or '').strip()
-            p = body.get('password') or ''
-            with _cur(c) as cur:
-                cur.execute('SELECT id, pass_hash FROM users WHERE username=%s', (u,))
-                row = cur.fetchone()
-                if not row or not verify_pw(p, row[1]):
-                    self._send_json(401, {'error': '用戶名或密碼錯誤'}); return
-                token = new_session(cur, row[0])
-            c.commit()
-            self._send_json(200, {'token': token, 'username': u})
-            return
-        if path == '/api/logout':
-            t = self._bearer()
-            with _cur(c) as cur:
-                cur.execute('DELETE FROM sessions WHERE token=%s', (t,))
-            c.commit()
-            self._send_json(200, {'ok': True})
-            return
-        self._send_json(404, {'error': 'not found'})
+        with DB_LOCK:
+            c = self._require_db()
+            if c is None:
+                return
+            if path == '/api/register':
+                body = self._read_json()
+                if not body or not isinstance(body, dict):
+                    self._send_json(400, {'error': 'bad request'}); return
+                u = (body.get('username') or '').strip()
+                p = body.get('password') or ''
+                if not re.fullmatch(r'[\w-]{2,32}', u):
+                    self._send_json(400, {'error': '用戶名需 2–32 位（字母、數字、_、-）'}); return
+                if len(p) < 6:
+                    self._send_json(400, {'error': '密碼至少 6 位'}); return
+                with _cur(c) as cur:
+                    cur.execute('SELECT id FROM users WHERE username=%s', (u,))
+                    if cur.fetchone():
+                        self._send_json(409, {'error': '此用戶名已存在，請直接登入'}); return
+                    cur.execute('INSERT INTO users(username,pass_hash) VALUES(%s,%s) RETURNING id', (u, hash_pw(p)))
+                    uid = cur.fetchone()[0]
+                    token = new_session(cur, uid)
+                c.commit()
+                self._send_json(201, {'token': token, 'username': u})
+                return
+            if path == '/api/login':
+                body = self._read_json()
+                if not body or not isinstance(body, dict):
+                    self._send_json(400, {'error': 'bad request'}); return
+                u = (body.get('username') or '').strip()
+                p = body.get('password') or ''
+                with _cur(c) as cur:
+                    cur.execute('SELECT id, pass_hash FROM users WHERE username=%s', (u,))
+                    row = cur.fetchone()
+                    if not row or not verify_pw(p, row[1]):
+                        self._send_json(401, {'error': '用戶名或密碼錯誤'}); return
+                    token = new_session(cur, row[0])
+                c.commit()
+                self._send_json(200, {'token': token, 'username': u})
+                return
+            if path == '/api/logout':
+                t = self._bearer()
+                with _cur(c) as cur:
+                    cur.execute('DELETE FROM sessions WHERE token=%s', (t,))
+                c.commit()
+                self._send_json(200, {'ok': True})
+                return
+            self._send_json(404, {'error': 'not found'})
 
     # --- API PUT ---
     def do_PUT(self):
@@ -452,55 +456,56 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 pass
 
     def _api_put(self, path):
-        c = self._require_db()
-        if c is None:
-            return
-        uid = user_by_token(c, self._bearer())
-        if uid is None:
-            self._send_json(401, {'error': 'unauthorized'}); return
-        body = self._read_json()
-        if body is None:
-            self._send_json(400, {'error': 'bad request'}); return
-        if path == '/api/answers':
-            ans = body.get('answers') or {}
-            if not isinstance(ans, dict) or len(ans) > 500:
-                self._send_json(400, {'error': 'bad answers'}); return
-            with _cur(c) as cur:
-                for k, v in ans.items():
+        with DB_LOCK:
+            c = self._require_db()
+            if c is None:
+                return
+            uid = user_by_token(c, self._bearer())
+            if uid is None:
+                self._send_json(401, {'error': 'unauthorized'}); return
+            body = self._read_json()
+            if body is None:
+                self._send_json(400, {'error': 'bad request'}); return
+            if path == '/api/answers':
+                ans = body.get('answers') or {}
+                if not isinstance(ans, dict) or len(ans) > 500:
+                    self._send_json(400, {'error': 'bad answers'}); return
+                with _cur(c) as cur:
+                    for k, v in ans.items():
+                        cur.execute(
+                            'INSERT INTO answers(user_id,q_key,q_value) VALUES(%s,%s,%s) '
+                            'ON CONFLICT (user_id,q_key) DO UPDATE SET q_value=EXCLUDED.q_value, updated_at=now()',
+                            (uid, str(k), str(v)))
+                c.commit()
+                self._send_json(200, {'ok': True, 'count': len(ans)})
+                return
+            if path == '/api/snapshot':
+                snap = body.get('snapshot')
+                if not isinstance(snap, dict):
+                    self._send_json(400, {'error': 'bad snapshot'}); return
+                with _cur(c) as cur:
                     cur.execute(
-                        'INSERT INTO answers(user_id,q_key,q_value) VALUES(%s,%s,%s) '
-                        'ON CONFLICT (user_id,q_key) DO UPDATE SET q_value=EXCLUDED.q_value, updated_at=now()',
-                        (uid, str(k), str(v)))
-            c.commit()
-            self._send_json(200, {'ok': True, 'count': len(ans)})
-            return
-        if path == '/api/snapshot':
-            snap = body.get('snapshot')
-            if not isinstance(snap, dict):
-                self._send_json(400, {'error': 'bad snapshot'}); return
-            with _cur(c) as cur:
-                cur.execute(
-                    'INSERT INTO snapshots(user_id,snapshot) VALUES(%s,%s::jsonb) '
-                    'ON CONFLICT (user_id) DO UPDATE SET snapshot=EXCLUDED.snapshot, updated_at=now()',
-                    (uid, json.dumps(snap, ensure_ascii=False)))
-            c.commit()
-            self._send_json(200, {'ok': True})
-            return
-        if path == '/api/plan':
-            plan, sched = body.get('plan'), body.get('schedule')
-            if not isinstance(plan, dict):
-                self._send_json(400, {'error': 'bad plan'}); return
-            if not isinstance(sched, dict):
-                sched = {}
-            with _cur(c) as cur:
-                cur.execute(
-                    'INSERT INTO plans(user_id,plan_json,schedule_json) VALUES(%s,%s::jsonb,%s::jsonb) '
-                    'ON CONFLICT (user_id) DO UPDATE SET plan_json=EXCLUDED.plan_json, schedule_json=EXCLUDED.schedule_json, updated_at=now()',
-                    (uid, json.dumps(plan, ensure_ascii=False), json.dumps(sched, ensure_ascii=False)))
-            c.commit()
-            self._send_json(200, {'ok': True})
-            return
-        self._send_json(404, {'error': 'not found'})
+                        'INSERT INTO snapshots(user_id,snapshot) VALUES(%s,%s::jsonb) '
+                        'ON CONFLICT (user_id) DO UPDATE SET snapshot=EXCLUDED.snapshot, updated_at=now()',
+                        (uid, json.dumps(snap, ensure_ascii=False)))
+                c.commit()
+                self._send_json(200, {'ok': True})
+                return
+            if path == '/api/plan':
+                plan, sched = body.get('plan'), body.get('schedule')
+                if not isinstance(plan, dict):
+                    self._send_json(400, {'error': 'bad plan'}); return
+                if not isinstance(sched, dict):
+                    sched = {}
+                with _cur(c) as cur:
+                    cur.execute(
+                        'INSERT INTO plans(user_id,plan_json,schedule_json) VALUES(%s,%s::jsonb,%s::jsonb) '
+                        'ON CONFLICT (user_id) DO UPDATE SET plan_json=EXCLUDED.plan_json, schedule_json=EXCLUDED.schedule_json, updated_at=now()',
+                        (uid, json.dumps(plan, ensure_ascii=False), json.dumps(sched, ensure_ascii=False)))
+                c.commit()
+                self._send_json(200, {'ok': True})
+                return
+            self._send_json(404, {'error': 'not found'})
 
     def log_message(self, fmt, *args):
         sys.stderr.write('[serve.py] %s\n' % (fmt % args))
@@ -509,7 +514,8 @@ if __name__ == '__main__':
     vid = apply_voice_id()
     if vid:
         print('Voice ID applied to agent:', vid)
-    socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(('', PORT), Handler) as httpd:
+    socketserver.ThreadingTCPServer.allow_reuse_address = True
+    socketserver.ThreadingTCPServer.daemon_threads = True  # 多執行緒：DeepSeek 慢呼叫不阻塞其他請求
+    with socketserver.ThreadingTCPServer(('', PORT), Handler) as httpd:
         print('StudyBuddy: http://localhost:%d  (db: %s)' % (PORT, 'configured' if DB_URL else 'NOT configured — static only'))
         httpd.serve_forever()
