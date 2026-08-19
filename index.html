@@ -411,7 +411,7 @@ function stageScore(key){
   if(!p)return 0;
   var tot=0;
   p.questions.forEach(function(q){ tot+=q[1]*(parseInt(S[q[0]],10)||0); });
-  return tot/4;   // 四維度階段＝Σ(階段級別×得分)／4
+  return tot*7/(4*28);   // Σ(階段×得分)／4／(1+2+…+7)×7 → 全滿分＝第 7 階段（封頂）
 }
 function fmtStage(v){ return String(Math.round(v*10)/10); }
 function englishLevel(){
