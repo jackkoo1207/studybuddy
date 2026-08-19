@@ -341,7 +341,7 @@ function go(v){
     document.getElementById('view-'+x).classList.toggle('hidden', x!==v);
   });
   var lo=document.getElementById('btnLogout'); if(lo) lo.style.display=(v==='dash')?'inline-block':'none';
-  if(v==='questionnaire'){ renderAge(); applyAnswers(S); }
+  if(v==='questionnaire'){ renderAge(); applyAnswers(S); S._qFp=JSON.stringify(collectAnswers()); } // 快照答案：送出時比對，設定未變更則不重新生成
   if(v==='dash') document.getElementById('hdrWho').textContent =
     (S.baby||'寶寶')+' · '+(S.parent||'家長');
 }
@@ -610,6 +610,12 @@ function computeAssessment(){
 }
 function submitAssessment(){
   if(!computeAssessment()){ alert("請先填寫寶寶出生日期"); return; }
+  var fp=JSON.stringify(collectAnswers());
+  if(S._qFp&&fp===S._qFp&&S.teachingPlan){ // 設定未變更 → 保留原計畫與進度，不重新生成
+    renderPlan(); renderMistakes(); renderSched(); go('dash'); tab('plan');
+    alert("問卷內容沒有變更，已保留原本的教學計畫。");
+    return;
+  }
   var b=document.getElementById('btnSubmitQ');
   if(b){ b.disabled=true; b.textContent="⏳ 正在生成課程計畫（DeepSeek）…"; }
   return generateTeachingPlan().then(function(){ // DeepSeek 生成；失敗自動退回本地規則版
@@ -705,27 +711,12 @@ function fetchPlanAttempt(profile,left){
     try{ renderPlan(); }catch(e){}
   });
 }
-function autoRegenerate(){
-  // 本地規則版計畫 → 登入後背景自動升級為 DeepSeek 版
-  // 冷卻只設在「成功」之後（30 分鐘）；失敗不設冷卻 → 每次登入都會重試，不會卡在警告頁
-  if(S.plan_source!=='local')return;
-  var last=0; try{last=parseInt(localStorage.getItem('sb_ds_retry')||'0',10)||0;}catch(e){}
-  if(Date.now()-last<1800000)return;
-  var oldSched=S.schedule;
-  generateTeachingPlan().then(function(){
-    S.schedule=oldSched||S.schedule;          // 失敗時也還原：本地版不會重設課堂進度
-    if(S.plan_source==='deepseek'){
-      try{localStorage.setItem('sb_ds_retry',String(Date.now()));}catch(e){}
-      savePlan(); renderPlan(); renderToday(); renderSched();
-    }
-  });
-}
 function renderPlan(){
   var lvl=S.level, dos=S.plan&&S.plan.dosage, tp=S.teachingPlan;
   document.getElementById('planTitle').textContent=(S.baby||'寶寶')+' 的教學計畫';
   var genNote = S.generating
     ? '<div class="note" style="border-color:#8ecae6;background:#f0f8ff">⏳ AI 正在生成新計畫…（DeepSeek，約 1–3 分鐘，完成後會自動更新本頁）</div>'
-    : ((S.plan_source==='local') ? '<div class="note">⚠️ DeepSeek 暫時無法連線，此計畫為本地規則版。已開啟自動升級：登入後會自動重試，完成即覆蓋，無需重填問卷。</div>' : '');
+    : ((S.plan_source==='local') ? '<div class="note">⚠️ DeepSeek 暫時無法連線，此計畫為本地規則版。修改問卷設定並重新送出後，會自動重新生成。</div>' : '');
   document.getElementById('planSub').innerHTML=
     genNote+
     '英語等級 <span class="pill strong">'+lvl+'</span> '+LEVEL_NAME[lvl]
@@ -1134,7 +1125,6 @@ function afterLogin(user){
         S.schedule=saved.schedule||{current_week:0,current_lesson:0,completed:[]};
         renderPlan(); renderMistakes(); renderSched();
         go('dash'); tab('plan');
-        autoRegenerate();                     // 若為本地規則版 → 背景自動升級 DeepSeek 版
         return;
       }
       return generateTeachingPlan().then(function(){ // 舊帳號無計畫 → 生成並保存
