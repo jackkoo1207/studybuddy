@@ -69,18 +69,23 @@ def db():
         return _db
     if not DB_URL:
         return None
-    import pg8000.dbapi
-    u = urllib.parse.urlparse(DB_URL)
-    _db = pg8000.dbapi.connect(
-        user=u.username or 'postgres',
-        password=u.password or '',
-        host=u.hostname or 'localhost',
-        port=u.port or 5432,
-        database=(u.path or '/postgres').lstrip('/'))
-    with _db.cursor() as cur:
-        cur.execute(SCHEMA)
-    _db.commit()
-    return _db
+    try:
+        import pg8000.dbapi
+        u = urllib.parse.urlparse(DB_URL)
+        _db = pg8000.dbapi.connect(
+            user=u.username or 'postgres',
+            password=u.password or '',
+            host=u.hostname or 'localhost',
+            port=u.port or 5432,
+            database=(u.path or '/postgres').lstrip('/'))
+        with _db.cursor() as cur:
+            cur.execute(SCHEMA)
+        _db.commit()
+        return _db
+    except Exception as e:
+        sys.stderr.write('[serve.py] DB connect failed: %s\n' % e)
+        _db = None  # 下次重試
+        return None
 
 # ---------- 密碼雜湊（pbkdf2，stdlib only） ----------
 def hash_pw(pw):
@@ -157,29 +162,43 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_json(200, {'ok': True, 'db': bool(DB_URL)})
             return
         if path == '/api/state':
-            c = self._require_db()
-            if c is None:
-                return
-            uid = user_by_token(c, self._bearer())
-            if uid is None:
-                self._send_json(401, {'error': 'unauthorized'})
-                return
-            with c.cursor() as cur:
-                cur.execute('SELECT q_key,q_value FROM answers WHERE user_id=%s', (uid,))
-                answers = {k: v for k, v in cur.fetchall()}
-                cur.execute('SELECT snapshot FROM snapshots WHERE user_id=%s', (uid,))
-                row = cur.fetchone()
-                snapshot = row[0] if row else None
-                cur.execute('SELECT plan_json, schedule_json FROM plans WHERE user_id=%s', (uid,))
-                row = cur.fetchone()
-                plan = {'plan': row[0], 'schedule': row[1]} if row else None
-            self._send_json(200, {'answers': answers, 'snapshot': snapshot, 'plan': plan})
+            try:
+                c = self._require_db()
+                if c is None:
+                    return
+                uid = user_by_token(c, self._bearer())
+                if uid is None:
+                    self._send_json(401, {'error': 'unauthorized'})
+                    return
+                with c.cursor() as cur:
+                    cur.execute('SELECT q_key,q_value FROM answers WHERE user_id=%s', (uid,))
+                    answers = {k: v for k, v in cur.fetchall()}
+                    cur.execute('SELECT snapshot FROM snapshots WHERE user_id=%s', (uid,))
+                    row = cur.fetchone()
+                    snapshot = row[0] if row else None
+                    cur.execute('SELECT plan_json, schedule_json FROM plans WHERE user_id=%s', (uid,))
+                    row = cur.fetchone()
+                    plan = {'plan': row[0], 'schedule': row[1]} if row else None
+                self._send_json(200, {'answers': answers, 'snapshot': snapshot, 'plan': plan})
+            except Exception as e:
+                sys.stderr.write('[serve.py] /api/state error: %s\n' % e)
+                self._send_json(500, {'error': 'server error'})
             return
         super().do_GET()
 
     # --- API POST ---
     def do_POST(self):
         path = self.path.split('?')[0]
+        try:
+            self._api_post(path)
+        except Exception as e:
+            sys.stderr.write('[serve.py] %s error: %s\n' % (path, e))
+            try:
+                self._send_json(500, {'error': 'server error'})
+            except Exception:
+                pass
+
+    def _api_post(self, path):
         c = self._require_db()
         if c is None:
             return
@@ -230,6 +249,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     # --- API PUT ---
     def do_PUT(self):
         path = self.path.split('?')[0]
+        try:
+            self._api_put(path)
+        except Exception as e:
+            sys.stderr.write('[serve.py] %s error: %s\n' % (path, e))
+            try:
+                self._send_json(500, {'error': 'server error'})
+            except Exception:
+                pass
+
+    def _api_put(self, path):
         c = self._require_db()
         if c is None:
             return
