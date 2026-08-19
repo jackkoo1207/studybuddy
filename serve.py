@@ -203,7 +203,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(200, {'answers': answers, 'snapshot': snapshot, 'plan': plan})
             except Exception as e:
                 sys.stderr.write('[serve.py] /api/state error: %s\n' % e)
-                self._send_json(500, {'error': 'server error'})
+                self._send_json(500, {'error': 'server error', 'detail': str(e)[:200]})
             return
         super().do_GET()
 
@@ -215,7 +215,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         except Exception as e:
             sys.stderr.write('[serve.py] %s error: %s\n' % (path, e))
             try:
-                self._send_json(500, {'error': 'server error'})
+                self._send_json(500, {'error': 'server error', 'detail': str(e)[:200]})
             except Exception:
                 pass
 
@@ -275,7 +275,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         except Exception as e:
             sys.stderr.write('[serve.py] %s error: %s\n' % (path, e))
             try:
-                self._send_json(500, {'error': 'server error'})
+                self._send_json(500, {'error': 'server error', 'detail': str(e)[:200]})
             except Exception:
                 pass
 
