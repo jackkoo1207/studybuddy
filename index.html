@@ -1049,7 +1049,7 @@ var API={token:null,user:null};
 try{ API.token=localStorage.getItem('sb_token')||null; API.user=localStorage.getItem('sb_user')||null; }catch(e){}
 function apiFetch(method,path,body,signal){
   var opt={method:method,headers:{'Content-Type':'application/json'}};
-  if(signal)opt.signal=signal;
+  if(signal)opt.signal=(signal.signal||signal); // 相容 AbortController（舊呼叫）與 AbortSignal
   if(API.token)opt.headers['Authorization']='Bearer '+API.token;
   if(body!==undefined)opt.body=JSON.stringify(body);
   return fetch(path,opt).then(function(r){ return r.json().then(function(j){ return {ok:r.ok,status:r.status,j:j}; }); });
