@@ -948,17 +948,16 @@ function maybeShowPicture(text){
   }
 }
 
-/* ---- ElevenLabs Convai 語音課堂（Agent.md §8.3） ---- */
+/* ---- ElevenLabs Convai 語音課堂（Agent.md §8.3；key 在伺服器端，瀏覽器用簽名 URL） ---- */
+var AGENT_ID='agent_0801m0c2cy4sftabmmjhd9bn02vp';
 var voice={conn:null,ctx:null,stream:null,queue:0,pendingText:null,spkTimer:null};
 var PROTOCOL_TEXT="LESSON PROTOCOL (plan first, then execute): 1) output a LessonPlan JSON: mistakes_recap 3 steps (enabled=false if no mistakes), yesterday_recap 2 steps, today_lesson 10 steps, lesson_recap 1 step. 2) execute step by step, never skip segments (except disabled mistakes_recap). Speak short slow encouraging English (max 8 words/sentence). Add a brief Traditional-Chinese/Cantonese hint for the parent only when helpful.";
 function setVoiceStatus(t){ var e=document.getElementById('voiceStatus'); if(e)e.textContent=t; }
-function ensureElConfig(){
-  // 即時讀取（elevenlabs_config.js 由本地 serve.py 自動注入；主腳本之後載入，不能用開頭快取）
-  var live=window.ELEVENLABS_CONFIG||null;
-  if(live&&live.agentId&&live.apiKey)return live;
-  var saved=null; try{ saved=JSON.parse(localStorage.getItem('sb_el_config')||'null'); }catch(e){}
-  if(saved&&saved.agentId&&saved.apiKey)return saved;
-  return null; // 不彈窗問 key：請以本地 `python serve.py` 啟動（自動讀 .env 的 ElEVENLABS_TOKEN）
+function getConvaiUrl(){
+  return apiFetch('POST','/api/convai-url').then(function(r){
+    if(!r.ok)throw new Error((r.j&&r.j.error)||'取得語音授權失敗');
+    return r.j.url;
+  });
 }
 function setMicLive(on){
   var b=document.getElementById('btnMic'), b2=document.getElementById('btnVoice');
@@ -967,19 +966,24 @@ function setMicLive(on){
 }
 function toggleVoiceLesson(){
   if(voice.conn&&voice.conn.readyState===1){ voice.conn.close(); return; }
-  var cfg=ensureElConfig();
-  if(!cfg){ voice.pendingText=null; setVoiceStatus('未配置 ElevenLabs — 請用本地 python serve.py 啟動（自動讀 .env）'); return; }
+  if(!S.user){ setVoiceStatus('請先登入'); return; }
   var prompt=PROTOCOL_TEXT+'\n\nLESSON CONTEXT (JSON):\n'+JSON.stringify(buildAgentContext(),null,2)+'\n\nTeach the child step by step in English. Use the draw_on_whiteboard tool to write every new word on the whiteboard before speaking it.';
-  setVoiceStatus('連接中…'); setMicLive(true);
-  openConvai(cfg.agentId, cfg.apiKey, prompt);
+  setVoiceStatus('取得授權…'); setMicLive(true);
+  getConvaiUrl().then(function(url){
+    setVoiceStatus('連接中…');
+    openConvai(url, prompt);
+  }).catch(function(err){
+    setMicLive(false);
+    setVoiceStatus('授權失敗：'+(err&&err.message?err.message:err));
+  });
 }
-function openConvai(agentId, apiKey, prompt){
+function openConvai(signedUrl, prompt){
   var tries=0;
   function connect(){
     tries++;
     var ws;
     try{
-      ws=new WebSocket('wss://api.elevenlabs.io/v1/convai/conversation?agent_id='+encodeURIComponent(agentId)+'&xi-api-key='+encodeURIComponent(apiKey));
+      ws=new WebSocket('wss://api.elevenlabs.io/v1/convai/conversation?agent_id='+encodeURIComponent(AGENT_ID)+'&signed_url='+encodeURIComponent(signedUrl));
     }catch(e){ setVoiceStatus('連接失敗'); return; }
     voice.conn=ws;
     var gotMeta=false;
@@ -1093,8 +1097,6 @@ function sendStudentText(){
 function sendChat(){ sendStudentText(); }
 </script>
 
-<!-- 本地 ElevenLabs 組態（gitignored；不存在時語音課堂提示設定） -->
-<script src="elevenlabs_config.js"></script>
 <!-- ============ 帳號與資料（多用戶，PostgreSQL 伺服器端保存；token 存 localStorage） ============ -->
 <script>
 /* ---- 多用戶 API（PostgreSQL 伺服器端；token 存 localStorage，可跨裝置同步） ---- */

@@ -5,7 +5,7 @@
 #   ELEVENLABS_API_KEY / ElEVENLABS_TOKEN / ELEVENLABS_TOKEN   ElevenLabs key（擇一）
 #   DATABASE_PRIVATE_URL 或 DATABASE_URL                        Postgres 連線（Railway: ${{ Postgres.DATABASE_PRIVATE_URL }}）
 #   PORT / SB_PORT                                             監聽埠（Railway 注入 PORT）
-import http.server, os, json, socketserver, sys, re, hashlib, hmac, secrets, urllib.parse
+import http.server, os, json, socketserver, sys, re, hashlib, hmac, secrets, urllib.parse, urllib.request
 from contextlib import contextmanager
 
 @contextmanager
@@ -52,7 +52,7 @@ SCHEMA = [
   updated_at TIMESTAMPTZ DEFAULT now())""",
 ]
 
-# ---------- ElevenLabs config injection ----------
+# ---------- ElevenLabs 簽名 URL（key 只留在伺服器端，瀏覽器永不接觸 key） ----------
 def _env_api_key():
     for name in ('ELEVENLABS_API_KEY', 'ElEVENLABS_TOKEN', 'ELEVENLABS_TOKEN', 'ELEVANLABS_API_KEY'):
         v = os.environ.get(name, '').strip()
@@ -64,13 +64,32 @@ def _env_api_key():
             v = v.strip()
             if v:
                 return v
+    # 本地開發：從 .env 檔讀
+    try:
+        for line in open(os.path.join(ROOT, '.env'), encoding='utf-8'):
+            line = line.strip()
+            if line.startswith('ElEVENLABS_TOKEN='):
+                v = line.split('=', 1)[1].strip().strip('"').strip("'")
+                if v:
+                    return v
+    except FileNotFoundError:
+        pass
     return ''
 
-def el_config_js():
+def make_convai_signed_url():
     key = _env_api_key()
     if not key:
-        return 'window.ELEVENLABS_CONFIG = null; // 未設定 ElEVENLABS_TOKEN'
-    return 'window.ELEVENLABS_CONFIG = %s;' % json.dumps({'agentId': AGENT_ID, 'apiKey': key})
+        return None, '未設定 ElevenLabs key'
+    qs = urllib.parse.urlencode({'agent_id': AGENT_ID, 'include_conversation_id': 'true'})
+    req = urllib.request.Request(
+        'https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?' + qs,
+        headers={'xi-api-key': key},
+        method='GET')
+    try:
+        r = urllib.request.urlopen(req, timeout=20)
+        return json.loads(r.read().decode())['signed_url'], None
+    except Exception as e:
+        return None, str(e)[:200]
 
 # ---------- Postgres ----------
 _db = None
@@ -170,15 +189,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     # --- API GET ---
     def do_GET(self):
         path = self.path.split('?')[0]
-        if path == '/elevenlabs_config.js':
-            body = el_config_js().encode('utf-8')
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/javascript; charset=utf-8')
-            self.send_header('Cache-Control', 'no-store')
-            self.send_header('Content-Length', str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-            return
         if path == '/healthz':
             host = urllib.parse.urlparse(DB_URL).hostname if DB_URL else None
             self._send_json(200, {'ok': True, 'db': bool(DB_URL), 'db_host': host, 'db_err': _db_err or None})
@@ -221,6 +231,20 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 pass
 
     def _api_post(self, path):
+        if path == '/api/convai-url':
+            # 需要登入（DB 未設定時放行，供本地開發）；不依賴 DB
+            if DB_URL:
+                c = db()
+                if c is None:
+                    self._send_json(503, {'error': 'database not configured'}); return
+                if user_by_token(c, self._bearer()) is None:
+                    self._send_json(401, {'error': 'unauthorized'}); return
+            url, err = make_convai_signed_url()
+            if err:
+                self._send_json(500, {'error': err})
+                return
+            self._send_json(200, {'url': url})
+            return
         c = self._require_db()
         if c is None:
             return
