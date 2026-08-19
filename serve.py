@@ -429,7 +429,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     cur.execute('SELECT id, pass_hash FROM users WHERE username=%s', (u,))
                     row = cur.fetchone()
                     if not row or not verify_pw(p, row[1]):
-                        self._send_json(401, {'error': '用戶名或密碼錯誤'}); return
+                        self._send_json(401, {'error': '用戶名或密碼錯誤（若為遷移前的舊帳號，請重新註冊）'}); return
                     token = new_session(cur, row[0])
                 c.commit()
                 self._send_json(200, {'token': token, 'username': u})
