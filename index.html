@@ -831,15 +831,28 @@ function generateTeachingPlan(){
     return S.teachingPlan;
   }).finally(function(){ if(timer)clearTimeout(timer); });
 }
+function regeneratePlan(){
+  var btn=document.getElementById('btnRegen');
+  if(btn){btn.disabled=true;btn.textContent='⏳ 正在生成（DeepSeek，最長 60 秒）…';}
+  var oldSched=S.schedule;                 // 保留課堂進度：重生成不重設
+  generateTeachingPlan().then(function(){
+    S.schedule=oldSched||S.schedule;
+    savePlan();
+    renderPlan(); renderToday(); renderSched();
+  }).finally(function(){
+    if(btn){btn.disabled=false;btn.textContent='🔄 重新生成（DeepSeek）';}
+  });
+}
 function renderPlan(){
   var lvl=S.level, dos=S.plan&&S.plan.dosage, tp=S.teachingPlan;
   document.getElementById('planTitle').textContent=(S.baby||'寶寶')+' 的教學計畫';
-  var srcNote = (S.plan_source==='local') ? '<div class="note">⚠️ DeepSeek 暫時無法連線，此計畫為本地規則版（可於「設定 → 重新填寫問卷」重新生成）。</div>' : '';
+  var srcNote = (S.plan_source==='local') ? '<div class="note">⚠️ DeepSeek 暫時無法連線，此計畫為本地規則版。點「重新生成（DeepSeek）」重試即可，無需重填問卷。</div>' : '';
   document.getElementById('planSub').innerHTML=
     srcNote+
     '英語等級 <span class="pill strong">'+lvl+'</span> '+LEVEL_NAME[lvl]
     +(dos?' ｜ 每週 '+dos.frequency_per_week+' 次 × 每次 '+dos.session_min+' 分':'')
-    +(tp?' ｜ 計畫生成於 '+tp.generated_at+'（首次註冊生成一次，登入不會重算；課後 agent 可依學習速度微調，預設不調整）':'');
+    +(tp?' ｜ 計畫生成於 '+tp.generated_at+'（首次註冊生成一次，登入不會重算；課後 agent 可依學習速度微調，預設不調整）':'')
+    +' <button id="btnRegen" onclick="regeneratePlan()" style="margin-left:8px">🔄 重新生成（DeepSeek）</button>';
   renderToday(); renderWeeks();
   var pr=S.progress;
   document.getElementById('progressKV').innerHTML=
@@ -1171,7 +1184,9 @@ function saveSnapshot(){
 function savePlan(){
   if(!S.user||!S.teachingPlan)return;
   var sched=S.schedule||{current_week:0,current_lesson:0,completed:[]};
-  apiSavePlan(S.teachingPlan,sched).catch(function(){});
+  var p=JSON.parse(JSON.stringify(S.teachingPlan));
+  if(S.plan_source)p._src=S.plan_source;   // 來源標記：deepseek｜local（重新整理後仍顯示正確狀態）
+  apiSavePlan(p,sched).catch(function(){});
 }
 function saveAll(){ saveAnswers(); saveSnapshot(); savePlan(); }
 
@@ -1202,6 +1217,7 @@ function loadAnswers(ans){
 function loadPlan(p){
   if(!p||!p.plan)return null;
   var plan=p.plan;
+  if(plan._src){ S.plan_source=plan._src; delete plan._src; } // 來源標記；舊計畫（無標記）→ 不顯示警告
   if(plan.weeks) plan.weeks.forEach(function(w){ if(w.focus) w.focus=w.focus.replace(/^第\s*\d+\s*週：/,''); }); // 遷移舊格式：移除內嵌「第 N 週：」前綴
   return {plan:plan,schedule:p.schedule||{current_week:0,current_lesson:0,completed:[]}};
 }
