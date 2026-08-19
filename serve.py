@@ -315,9 +315,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         super().__init__(*a, directory=ROOT, **k)
 
     def end_headers(self):
-        # HTML 每次重新驗證：部署後用戶不會拿到舊版 JS
-        if self.path.split('?')[0].endswith('.html'):
-            self.send_header('Cache-Control', 'no-cache')
+        # 全站 no-cache（應用很小）：部署後用戶不會拿到舊版 HTML/JS
+        self.send_header('Cache-Control', 'no-cache')
         super().end_headers()
 
     # --- helpers ---
