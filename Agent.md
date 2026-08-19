@@ -182,13 +182,55 @@ StudyBuddy 編排以下子 agent（提示詞定義見 `prompts.py`）。各子 a
 | 評估總結          | `SYS_ASSESS`  | 依家長觀察寫發展階段總結（繁中、溫和、不焦慮）    | 文字總結                      | 規則庫 / 同一 agent |
 | 課程設計師         | `SYS_COURSE`  | 生成每日 10 分鐘、家長可執行強化訓練（含英語軌） | `JSON_COURSE`             | 規則庫 / 同一 agent |
 | Avatar 個性化調度器 | `SYS_AVATAR`  | 推斷性格→選人格→定內容風格與分量，只輸 JSON  | `JSON_AVATAR`（AvatarPlan） | 規則庫 / 同一 agent |
-| 英語對話（數字人）    | `SYS_ENGLISH` | 生成 4–6 輪數字人英文對話台詞（短、慢、鼓勵）  | `JSON_ENGLISH`            | **ElevenLabs Agent**（生成＋語音一體） |
+| 英語對話（數字人）    | `SYS_ENGLISH` | 依 §8.3 課程執行協定先規劃 LessonPlan 再逐步執行（4 段 × 16 步）；休閒對話 4–6 輪 | `JSON_ENGLISH` / `LessonPlan` | **ElevenLabs Agent**（生成＋語音一體） |
 
 > 語音耦合：Spell 拼讀 aloud 由 ElevenLabs Agent 語音辨識接收並口語回饋；點選字母磚則走文字通道。若 agent 在 `JSON_COURSE` / `JSON_AVATAR` 出現格式錯誤，由 `prompts.py` 的 JSON 解析層重試或降規則庫兜底（見 §13）。
 
 ### 8.2 調度約束
 
 > Avatar Agent 只注入「性格提示」與「分量」，不改 `tutor.generate_english_script` 產出的目標詞彙與輪數（內容錨點保持對標標準）。前端數字人 tab 先取 AvatarPlan 再渲染。
+
+### 8.3 課程執行協定（Lesson Execution Protocol）— ElevenLabs Agent
+
+> 目的：讓數字人 agent 在真實課堂中**先規劃、後執行**，每節課結構固定（4 段 × 16 步），家長與寶寶都可預期。
+
+**執行原則**
+
+1. **先規劃後執行**：每次上課前，agent 依上下文先產出整節課的 `LessonPlan`（JSON），再依序執行；執行中依寶寶反應即時調整語氣與提示，但**不跳過任何段落**。
+2. **上下文（每次上課前取得，由前端彙整）**：
+   - **今日焦點**：今日要教的活動、支柱（Hear/Read/Spell）、目標詞、做法、目標
+   - **四週教學計畫**：目前第幾週、已完成／未完成課程、目前進度（lesson schedule）
+   - **優勢項**：六通路優勢（高於生理階段）＋ 已掌握主題（mastered topics）
+   - **薄弱項與常錯點**：六通路薄弱項（低於生理階段）＋ 課堂累積的 conceptual mistakes（無課堂記錄則為空）
+   - **英語等級**（L0–L4）、環境等級、性格原型
+
+3. **每節課固定 4 段 × 16 步**：
+
+| 段落 | 步驟數 | 內容 |
+| --- | --- | --- |
+| ① 常錯複習（Common Mistakes Recap） | 3 | 僅當存在常錯點時執行：逐項快速回顧＋各 1 次小練習；無常錯則整段跳過 |
+| ② 昨日課程複習（Yesterday Lesson Recap） | 2 | 回顧昨日目標詞與活動；1 次快速輸出檢查 |
+| ③ 今日課程（Today Lesson） | 10 | 依今日焦點逐步教學：引入 → 示範 → 跟讀 → 練習 → 糾錯 → 再練 → 遊戲化 → 強化 → 獨立輸出 → 鼓勵 |
+| ④ 今日總結（Today Lesson Recap） | 1 | 總結今日所學 ＋ 一句鼓勵 ＋ 預告明天 |
+
+**LessonPlan 契約（agent 執行前產出）**
+
+```json
+{
+  "lesson_plan": {
+    "mistakes_recap": {"enabled": true, "steps": [
+      {"en": "短英文（8 詞以內）", "zh": "繁中提示", "pillar": "Hear+Spell"}
+    ]},
+    "yesterday_recap": {"enabled": true, "steps": []},
+    "today_lesson": {"steps": []},
+    "lesson_recap": {"steps": []}
+  }
+}
+```
+
+- `mistakes_recap.steps` = 3 步、`yesterday_recap.steps` = 2 步、`today_lesson.steps` = 10 步、`lesson_recap.steps` = 1 步
+- `mistakes_recap.enabled=false` 時整段跳過（agent 不提及）
+- 每步為一句短英文台詞（8 詞以內）＋繁中提示；由 ElevenLabs Agent 以語音逐步執行
 
 ---
 

@@ -298,6 +298,10 @@
           <button onclick="sendChat()">送出</button>
         </div>
         <div class="note">語音耦合：孩子拼讀 aloud（Spell）→ 由 ElevenLabs Agent 語音辨識接收並口語回饋；本原型以文字模擬。</div>
+        <div class="row">
+          <button class="ghost" onclick="copyAgentContext()">📋 複製 Agent 課程上下文</button>
+        </div>
+        <div class="note">測試 ElevenLabs Agent：複製上下文（今日焦點／四週計畫／優勢／薄弱／常錯，對標 Agent.md §8.3），貼到 ElevenLabs 專案讓 agent 先規劃 LessonPlan 再逐段執行（常錯複習 3 步 → 昨日複習 2 步 → 今日課程 10 步 → 總結 1 步）。</div>
       </div>
 
       <!-- TAB: MISTAKE -->
@@ -836,6 +840,26 @@ function renderSched(){
     html+='<div class="day"><b>週'+days[i]+'</b>'+cell+'</div>';
   }
   document.getElementById('schedGrid').innerHTML=html;
+}
+
+/* ---- ElevenLabs Agent 課程上下文（對標 Agent.md §8.3） ---- */
+function buildAgentContext(){
+  var tp=S.teachingPlan, s=S.schedule||{current_week:0,current_lesson:0,completed:[]};
+  var wk=tp&&tp.weeks[s.current_week], ls=wk&&(wk.lessons[s.current_lesson]||wk.lessons[0]);
+  var ph=S.phys||{weak:[],strong:[],pathways:{}};
+  return {
+    today_focus: ls?{week:s.current_week+1,day:ls.day,activity:ls.activity,pillar:ls.pillar,words:ls.words,how:ls.how,goal:ls.goal}:null,
+    weekly_plan: tp?{generated_at:tp.generated_at,current_week:s.current_week+1,total_weeks:tp.weeks.length,completed_lessons:s.completed.length}:null,
+    strengths:{pathways:ph.strong||[],mastered:S.progress&&S.progress.mastered_topics||[]},
+    weaknesses:{pathways:ph.weak||[],mistakes:S.mistakes||[]},
+    profile:{level:S.level,env:S.plan&&S.plan.segment.env_level,personality:S.plan&&S.plan.personality.primary}
+  };
+}
+function copyAgentContext(){
+  var json=JSON.stringify(buildAgentContext(),null,2);
+  var done=function(){ alert('已複製 Agent 課程上下文（可貼到 ElevenLabs 專案）'); };
+  var fail=function(){ prompt('複製失敗，請手動複製：', json); };
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(json).then(done).catch(fail); } else { fail(); }
 }
 
 /* ---- Chatbot（依等級動態生成，S.script） ---- */
