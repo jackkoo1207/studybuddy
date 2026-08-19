@@ -1263,7 +1263,7 @@ function afterLogin(user){
       S.user = u;
       setMsg("登入成功");
       afterLogin(u);
-    }).catch(function(){ setMsg("無法連接伺服器（請確認已透過 Railway／serve.py 啟動）", true); });
+    }).catch(function(){ setMsg("無法連接伺服器：請檢查網路後重新整理頁面再試（若剛更新部署，請等 1 分鐘）", true); });
   }
   btn.addEventListener("click", login);
 
