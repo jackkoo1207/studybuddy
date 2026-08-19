@@ -1,0 +1,7 @@
+{
+  "name": "studybuddy-verify",
+  "private": true,
+  "description": "Ad-hoc verification harness for StudyBuddy prototype (runs the real inline JS from ../index.html against real sql.js in a stubbed DOM).",
+  "scripts": { "test": "node plan.test.js" },
+  "devDependencies": { "sql.js": "^1.12.0" }
+}
