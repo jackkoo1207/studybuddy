@@ -817,7 +817,7 @@ function generateTeachingPlan(){
     personality:(S.plan&&S.plan.personality)||{},
     content_plan:(S.plan&&S.plan.content_plan)||{}};
   var ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
-  var timer=ctrl?setTimeout(function(){ctrl.abort();},60000):null; // 60s 上限：絕不卡死
+  var timer=ctrl?setTimeout(function(){ctrl.abort();},150000):null; // 150s 上限：伺服器 2 次重試 × 70s；絕不卡死
   return apiFetch('POST','/api/generate-plan',profile,ctrl).then(function(res){
     if(!res.ok)throw new Error((res.j&&res.j.error)||'generate-plan failed');
     var p=res.j.plan;
@@ -833,7 +833,7 @@ function generateTeachingPlan(){
 }
 function regeneratePlan(){
   var btn=document.getElementById('btnRegen');
-  if(btn){btn.disabled=true;btn.textContent='⏳ 正在生成（DeepSeek，最長 60 秒）…';}
+  if(btn){btn.disabled=true;btn.textContent='⏳ 正在生成（DeepSeek 高負載時最長約 2.5 分鐘）…';}
   var oldSched=S.schedule;                 // 保留課堂進度：重生成不重設
   generateTeachingPlan().then(function(){
     S.schedule=oldSched||S.schedule;

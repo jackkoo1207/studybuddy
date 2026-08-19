@@ -169,20 +169,47 @@ def generate_plan_with_deepseek(profile):
         'temperature': 0.7,
         'response_format': {'type': 'json_object'},
     }
-    req = urllib.request.Request(
-        'https://api.deepseek.com/chat/completions',
-        data=json.dumps(body).encode(),
-        headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
-        method='POST')
-    try:
-        r = json.loads(urllib.request.urlopen(req, timeout=45).read().decode())
-        content = r['choices'][0]['message']['content']
-        plan = json.loads(content)
-        if not plan.get('weeks') or len(plan['weeks']) != 4:
-            return None, 'DeepSeek 回傳格式不符（weeks 需 4 週）'
-        return plan, None
-    except Exception as e:
-        return None, 'DeepSeek 失敗：%s' % str(e)[:160]
+    last_err = None
+    for attempt in range(2):          # DeepSeek 高負載時常慢而非掛：重試一次
+        req = urllib.request.Request(
+            'https://api.deepseek.com/chat/completions',
+            data=json.dumps(body).encode(),
+            headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
+            method='POST')
+        try:
+            r = json.loads(urllib.request.urlopen(req, timeout=70).read().decode())
+            content = r['choices'][0]['message']['content']
+            plan = json.loads(content)
+            if not plan.get('weeks') or len(plan['weeks']) != 4:
+                return None, 'DeepSeek 回傳格式不符（weeks 需 4 週）'
+            return plan, None
+        except Exception as e:
+            last_err = e
+    return None, 'DeepSeek 失敗：%s' % str(last_err)[:160]
+
+_ds_ping = {'t': 0.0, 'ok': False}
+
+def deepseek_ping():
+    """輕量 1-token 探測：DeepSeek 在 Railway 路徑是否可用（60s 快取）。"""
+    import time as _t
+    if _t.time() - _ds_ping['t'] < 60:
+        return _ds_ping['ok']
+    key = _deepseek_key()
+    ok = False
+    if key:
+        body = {'model': DEEPSEEK_MODEL, 'messages': [{'role': 'user', 'content': 'hi'}], 'max_tokens': 1}
+        req = urllib.request.Request(
+            'https://api.deepseek.com/chat/completions',
+            data=json.dumps(body).encode(),
+            headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
+            method='POST')
+        try:
+            urllib.request.urlopen(req, timeout=15)
+            ok = True
+        except Exception:
+            ok = False
+    _ds_ping['t'] = _t.time(); _ds_ping['ok'] = ok
+    return ok
 
 def apply_voice_id():
     vid = _voice_id()
@@ -321,7 +348,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             host = urllib.parse.urlparse(DB_URL).hostname if DB_URL else None
             self._send_json(200, {
                 'ok': True, 'db': bool(DB_URL), 'db_host': host, 'db_err': _db_err or None,
-                'deepseek': bool(_deepseek_key()), 'voice_id': _voice_id() or None,
+                'deepseek': bool(_deepseek_key()), 'deepseek_ok': deepseek_ping(), 'voice_id': _voice_id() or None,
             })
             return
         if path == '/api/state':
