@@ -953,16 +953,12 @@ var voice={conn:null,ctx:null,stream:null,queue:0,pendingText:null,spkTimer:null
 var PROTOCOL_TEXT="LESSON PROTOCOL (plan first, then execute): 1) output a LessonPlan JSON: mistakes_recap 3 steps (enabled=false if no mistakes), yesterday_recap 2 steps, today_lesson 10 steps, lesson_recap 1 step. 2) execute step by step, never skip segments (except disabled mistakes_recap). Speak short slow encouraging English (max 8 words/sentence). Add a brief Traditional-Chinese/Cantonese hint for the parent only when helpful.";
 function setVoiceStatus(t){ var e=document.getElementById('voiceStatus'); if(e)e.textContent=t; }
 function ensureElConfig(){
-  // 即時讀取（elevenlabs_config.js 在主腳本之後載入，不能用開頭快取的 EL）
+  // 即時讀取（elevenlabs_config.js 由本地 serve.py 自動注入；主腳本之後載入，不能用開頭快取）
   var live=window.ELEVENLABS_CONFIG||null;
   if(live&&live.agentId&&live.apiKey)return live;
   var saved=null; try{ saved=JSON.parse(localStorage.getItem('sb_el_config')||'null'); }catch(e){}
   if(saved&&saved.agentId&&saved.apiKey)return saved;
-  var input=prompt('貼上 ElevenLabs 組態 JSON（可於本地 elevenlabs_config.js 設定，此處僅存於本瀏覽器）：\n{"agentId":"agent_0801m0c2cy4sftabmmjhd9bn02vp","apiKey":"<你的 API key>"}');
-  if(!input)return null;
-  try{ var cfg=JSON.parse(input); if(cfg.agentId&&cfg.apiKey){ localStorage.setItem('sb_el_config',JSON.stringify(cfg)); return cfg; } }catch(e){}
-  alert('格式錯誤：請貼 {"agentId":"...","apiKey":"..."}');
-  return null;
+  return null; // 不彈窗問 key：請以本地 `python serve.py` 啟動（自動讀 .env 的 ElEVENLABS_TOKEN）
 }
 function setMicLive(on){
   var b=document.getElementById('btnMic'), b2=document.getElementById('btnVoice');
@@ -972,7 +968,7 @@ function setMicLive(on){
 function toggleVoiceLesson(){
   if(voice.conn&&voice.conn.readyState===1){ voice.conn.close(); return; }
   var cfg=ensureElConfig();
-  if(!cfg){ voice.pendingText=null; setVoiceStatus('未配置 ElevenLabs'); return; }
+  if(!cfg){ voice.pendingText=null; setVoiceStatus('未配置 ElevenLabs — 請用本地 python serve.py 啟動（自動讀 .env）'); return; }
   var prompt=PROTOCOL_TEXT+'\n\nLESSON CONTEXT (JSON):\n'+JSON.stringify(buildAgentContext(),null,2)+'\n\nTeach the child step by step in English. Use the draw_on_whiteboard tool to write every new word on the whiteboard before speaking it.';
   setVoiceStatus('連接中…'); setMicLive(true);
   openConvai(cfg.agentId, cfg.apiKey, prompt);
