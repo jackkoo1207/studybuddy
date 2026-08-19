@@ -855,15 +855,18 @@ function regeneratePlan(){
   });
 }
 function autoRegenerate(){
-  // 本地規則版計畫 → 登入後背景自動升級為 DeepSeek 版（10 分鐘冷卻，不打擾使用者）
+  // 本地規則版計畫 → 登入後背景自動升級為 DeepSeek 版
+  // 冷卻只設在「成功」之後（30 分鐘）；失敗不設冷卻 → 每次登入都會重試，不會卡在警告頁
   if(S.plan_source!=='local')return;
   var last=0; try{last=parseInt(localStorage.getItem('sb_ds_retry')||'0',10)||0;}catch(e){}
-  if(Date.now()-last<600000)return;
-  try{localStorage.setItem('sb_ds_retry',String(Date.now()));}catch(e){}
+  if(Date.now()-last<1800000)return;
   var oldSched=S.schedule;
   generateTeachingPlan().then(function(){
     S.schedule=oldSched||S.schedule;          // 失敗時也還原：本地版不會重設課堂進度
-    if(S.plan_source==='deepseek'){ savePlan(); renderPlan(); renderToday(); renderSched(); }
+    if(S.plan_source==='deepseek'){
+      try{localStorage.setItem('sb_ds_retry',String(Date.now()));}catch(e){}
+      savePlan(); renderPlan(); renderToday(); renderSched();
+    }
   });
 }
 function renderPlan(){
