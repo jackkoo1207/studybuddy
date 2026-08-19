@@ -116,7 +116,7 @@ vm.createContext(sandbox);
     sandbox.S.V6 = 3;
     sandbox.S.A5 = strong ? 3 : 1;   // 弱聽覺：A5 未達（落後 ≥2 階段）→ 薄弱項
     sandbox.S.A6 = strong ? 3 : 1;
-    sandbox.S.R1 = 3; sandbox.S.R2 = 3; sandbox.S.R3 = 2; sandbox.S.R4 = 1;  // 閱讀階梯 3 → L2
+    sandbox.S.R1 = 3; sandbox.S.R2 = 3; sandbox.S.R3 = 3; sandbox.S.R4 = 1;  // 閱讀階梯 3 → L2（1–4 分制，≥3 才算達成）
     sandbox.S.SP1 = 3; sandbox.S.SP2 = 3; sandbox.S.SP3 = 1;                  // 拼寫階梯 2（不升等）
   };
 
