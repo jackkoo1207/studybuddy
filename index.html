@@ -705,18 +705,6 @@ function fetchPlanAttempt(profile,left){
     try{ renderPlan(); }catch(e){}
   });
 }
-function regeneratePlan(){
-  var btn=document.getElementById('btnRegen');
-  if(btn){btn.disabled=true;btn.textContent='⏳ 正在生成（DeepSeek 高負載時最多約 6 分鐘，會自動重試）…';}
-  var oldSched=S.schedule;                 // 保留課堂進度：重生成不重設
-  generateTeachingPlan().then(function(){
-    S.schedule=oldSched||S.schedule;
-    savePlan();
-    renderPlan(); renderToday(); renderSched();
-  }).finally(function(){
-    if(btn){btn.disabled=false;btn.textContent='🔄 重新生成（DeepSeek）';}
-  });
-}
 function autoRegenerate(){
   // 本地規則版計畫 → 登入後背景自動升級為 DeepSeek 版
   // 冷卻只設在「成功」之後（30 分鐘）；失敗不設冷卻 → 每次登入都會重試，不會卡在警告頁
@@ -742,8 +730,7 @@ function renderPlan(){
     genNote+
     '英語等級 <span class="pill strong">'+lvl+'</span> '+LEVEL_NAME[lvl]
     +(dos?' ｜ 每週 '+dos.frequency_per_week+' 次 × 每次 '+dos.session_min+' 分':'')
-    +(tp?' ｜ 計畫生成於 '+tp.generated_at+'（首次註冊生成一次，登入不會重算；課後 agent 可依學習速度微調，預設不調整）':'')
-    +' <button id="btnRegen" onclick="regeneratePlan()" style="margin-left:8px"'+(S.generating?' disabled':'')+'>'+(S.generating?'⏳ 生成中…':'🔄 重新生成（DeepSeek）')+'</button>';
+    +(tp?' ｜ 計畫生成於 '+tp.generated_at+'（首次註冊生成一次，登入不會重算；課後 agent 可依學習速度微調，預設不調整）':'');
   renderToday(); renderWeeks();
   var pr=S.progress;
   document.getElementById('progressKV').innerHTML=
