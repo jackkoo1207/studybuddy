@@ -132,6 +132,56 @@ def _lesson_planner_prompt():
     return DEEPSEEK_SYSTEM_PROMPT
 
 
+PACKY_BASE_URL = os.environ.get('PACKY_BASE_URL', 'https://www.packyapi.ai')
+PACKY_IMAGE_MODEL = os.environ.get('PACKY_IMAGE_MODEL', 'gpt-image-1')
+
+
+def _packy_key():
+    """PackyAPI key：PACKY_CODE_API_KEY / PACKY_CODE_TOKEN（env 或 .env）。"""
+    for k in ('PACKY_CODE_API_KEY', 'PACKY_CODE_TOKEN'):
+        v = os.environ.get(k, '').strip()
+        if v:
+            return v
+    try:
+        for line in open(os.path.join(ROOT, '.env'), encoding='utf-8'):
+            if line.strip().startswith(('PACKY_CODE_API_KEY=', 'PACKY_CODE_TOKEN=')):
+                v = line.split('=', 1)[1].strip().strip('"').strip("'")
+                if v:
+                    return v
+    except FileNotFoundError:
+        pass
+    return ''
+
+
+def generate_image(prompt):
+    """PackyAPI /v1/images/generations（OpenAI 相容）。回傳 (url_or_dataurl, err)。"""
+    key = _packy_key()
+    if not key:
+        return None, '未設定 PACKY_CODE_API_KEY（Railway 環境變數）'
+    body = {'model': PACKY_IMAGE_MODEL, 'prompt': prompt, 'n': 1, 'size': '1024x1024'}
+    req = urllib.request.Request(
+        PACKY_BASE_URL.rstrip('/') + '/v1/images/generations',
+        data=json.dumps(body).encode(),
+        headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
+        method='POST')
+    try:
+        r = json.loads(urllib.request.urlopen(req, timeout=90).read().decode())
+        data = r.get('data') or []
+        if not data:
+            return None, 'PackyAPI 回傳無圖片資料'
+        item = data[0]
+        if item.get('b64_json'):
+            return 'data:image/png;base64,' + item['b64_json'], None
+        if item.get('url'):
+            return item['url'], None
+        return None, 'PackyAPI 回傳格式不符'
+    except urllib.error.HTTPError as e:
+        msg = (e.read().decode() or str(e))[:200] if e.fp else str(e)[:200]
+        return None, 'PackyAPI %s: %s' % (e.code, msg)
+    except Exception as e:
+        return None, 'PackyAPI 失敗：%s' % str(e)[:160]
+
+
 DEEPSEEK_SYSTEM_PROMPT = """You are the curriculum designer of StudyBuddy, an early-English tutor for children aged 0-6 whose mother tongue is Cantonese or Mandarin. You generate a personalized 4-week English lesson plan from the child's assessment profile.
 
 STRICT OUTPUT: reply with ONLY a JSON object (no markdown fences, no commentary) in exactly this shape:
