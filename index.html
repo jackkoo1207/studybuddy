@@ -943,7 +943,11 @@ function savePlan(){
 function loadPlan(){
   if(!DB)return null;
   var res=DB.exec("SELECT plan_json,schedule_json FROM plan WHERE id=1");
-  if(res.length&&res[0].values.length){try{return {plan:JSON.parse(res[0].values[0][0]),schedule:JSON.parse(res[0].values[0][1]||'{}')};}catch(e){}}
+  if(res.length&&res[0].values.length){try{
+    var p=JSON.parse(res[0].values[0][0]);
+    if(p&&p.weeks) p.weeks.forEach(function(w){ if(w.focus) w.focus=w.focus.replace(/^第\s*\d+\s*週：/,''); }); // 遷移舊格式：移除內嵌「第 N 週：」前綴
+    return {plan:p,schedule:JSON.parse(res[0].values[0][1]||'{}')};
+  }catch(e){}}
   return null;
 }
 function saveAll(){ saveAnswers(); saveSnapshot(); savePlan(); }
