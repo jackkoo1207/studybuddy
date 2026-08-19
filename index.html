@@ -291,17 +291,24 @@
       <!-- TAB: CHAT -->
       <div id="tab-chat" class="hidden">
         <h2>數字人對話（Chatbot）</h2>
-        <p class="sub">對話內容依問卷答案生成（等級 L + 目標詞）；真實上線由 ElevenLabs Agent 生成並以語音唸出。</p>
+        <p class="sub">語音課堂：直接與 ElevenLabs Agent 對話（依 §8.3 先規劃 LessonPlan 再逐段執行）；目標詞自動顯示透明卡通圖卡。</p>
+        <div class="picture-card" id="pictureCard" style="display:none;text-align:center;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px">
+          <img id="pictureImg" style="max-height:150px;max-width:100%" alt="word" />
+          <div id="pictureLabel" style="font-size:13px;color:var(--muted)"></div>
+        </div>
         <div class="chat" id="chatBox"></div>
         <div class="row">
-          <input type="text" id="chatIn" placeholder="輸入寶寶的回應（模擬）…" style="flex:1" />
+          <button id="btnVoice" onclick="toggleVoiceLesson()">🎤 開始語音課堂</button>
+          <span class="pill" id="voiceStatus">未連接</span>
+        </div>
+        <div class="row">
+          <input type="text" id="chatIn" placeholder="輸入文字回應（模擬）…" style="flex:1" />
           <button onclick="sendChat()">送出</button>
         </div>
-        <div class="note">語音耦合：孩子拼讀 aloud（Spell）→ 由 ElevenLabs Agent 語音辨識接收並口語回饋；本原型以文字模擬。</div>
+        <div class="note">目標詞圖卡使用 Twemoji（透明背景、卡通風格、無浮水印）；文字輸入僅作無麥克風時的模擬。語音耦合：孩子拼讀 aloud（Spell）→ agent 語音辨識接收並口語回饋。</div>
         <div class="row">
           <button class="ghost" onclick="copyAgentContext()">📋 複製 Agent 課程上下文</button>
         </div>
-        <div class="note">測試 ElevenLabs Agent：複製上下文（今日焦點／四週計畫／優勢／薄弱／常錯，對標 Agent.md §8.3），貼到 ElevenLabs 專案讓 agent 先規劃 LessonPlan 再逐段執行（常錯複習 3 步 → 昨日複習 2 步 → 今日課程 10 步 → 總結 1 步）。</div>
       </div>
 
       <!-- TAB: MISTAKE -->
@@ -862,6 +869,135 @@ function copyAgentContext(){
   if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(json).then(done).catch(fail); } else { fail(); }
 }
 
+/* ---- 目標詞圖卡：Twemoji（透明背景卡通、無浮水印） ---- */
+var EMOJI_WORDS={banana:'1f34c',cat:'1f431',dog:'1f436',apple:'1f34e',ball:'26bd',car:'1f697',nose:'1f443',clap:'1f44f',hands:'1f44f',hand:'1f44b',star:'1f31f',twinkle:'1f31f',bird:'1f426',pig:'1f437',park:'1f333',tree:'1f333',run:'1f3c3',story:'1f4d6',book:'1f4d6',water:'1f4a7',milk:'1f95b',red:'1f534',blue:'1f535',green:'1f7e2',yellow:'1f7e1',touch:'1f449',this:'1f449',what:'2753',la:'1f3b5',song:'1f3b5',moon:'1f31e',sun:'1f31e',cow:'1f42e',duck:'1f986',fish:'1f41f',bear:'1f43b',lion:'1f981',monkey:'1f435',house:'1f3e0',baby:'1f476',mama:'1f469',daddy:'1f468'};
+function imageForWord(w){
+  var code=EMOJI_WORDS[(w||'').toLowerCase().replace(/[^a-z]/g,'')];
+  if(code) return 'https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/'+code+'.svg';
+  return null;
+}
+function showPicture(w){
+  var url=imageForWord(w), card=document.getElementById('pictureCard');
+  if(!url||!card){ if(card)card.style.display='none'; return; }
+  document.getElementById('pictureImg').src=url;
+  document.getElementById('pictureLabel').textContent=w+' 🍌';
+  card.style.display='block';
+}
+function maybeShowPicture(text){
+  var tp=S.teachingPlan, s=S.schedule||{current_week:0,current_lesson:0,completed:[]};
+  var wk=tp&&tp.weeks[s.current_week], ls=wk&&(wk.lessons[s.current_lesson]||wk.lessons[0]);
+  var words=ls&&ls.words?ls.words.split('、'):[];
+  var t=(' '+text.toLowerCase()+' ');
+  for(var i=0;i<words.length;i++){
+    var w=words[i].trim().toLowerCase();
+    if(!w||w==='—')continue;
+    if(t.indexOf(' '+w+' ')>=0||t.indexOf(w)>=0){ showPicture(w); return; }
+  }
+}
+
+/* ---- ElevenLabs Convai 語音課堂（Agent.md §8.3） ---- */
+var EL=window.ELEVENLABS_CONFIG||null;
+var voice={conn:null,ctx:null,stream:null,queue:0};
+var PROTOCOL_TEXT="LESSON PROTOCOL (plan first, then execute): 1) output a LessonPlan JSON: mistakes_recap 3 steps (enabled=false if no mistakes), yesterday_recap 2 steps, today_lesson 10 steps, lesson_recap 1 step. 2) execute step by step, never skip segments (except disabled mistakes_recap). Speak short slow encouraging English (max 8 words/sentence). Add a brief Traditional-Chinese/Cantonese hint for the parent only when helpful.";
+function setVoiceStatus(t){ var e=document.getElementById('voiceStatus'); if(e)e.textContent=t; }
+function ensureElConfig(){
+  if(EL&&EL.agentId&&EL.apiKey)return EL;
+  var saved=null; try{ saved=JSON.parse(localStorage.getItem('sb_el_config')||'null'); }catch(e){}
+  if(saved&&saved.agentId&&saved.apiKey)return saved;
+  var input=prompt('貼上 ElevenLabs 組態 JSON（可於本地 elevenlabs_config.js 設定，此處僅存於本瀏覽器）：\n{"agentId":"agent_0801m0c2cy4sftabmmjhd9bn02vp","apiKey":"<你的 API key>"}');
+  if(!input)return null;
+  try{ var cfg=JSON.parse(input); if(cfg.agentId&&cfg.apiKey){ localStorage.setItem('sb_el_config',JSON.stringify(cfg)); return cfg; } }catch(e){}
+  alert('格式錯誤：請貼 {"agentId":"...","apiKey":"..."}');
+  return null;
+}
+function toggleVoiceLesson(){
+  var btn=document.getElementById('btnVoice');
+  if(voice.conn&&voice.conn.readyState===1){ voice.conn.close(); btn.textContent='🎤 開始語音課堂'; return; }
+  var cfg=ensureElConfig();
+  if(!cfg){ setVoiceStatus('未配置 ElevenLabs'); return; }
+  var prompt=PROTOCOL_TEXT+'\n\nLESSON CONTEXT (JSON):\n'+JSON.stringify(buildAgentContext(),null,2)+'\n\nTeach the child step by step in English.';
+  setVoiceStatus('連接中…'); btn.textContent='⏹ 結束語音課堂';
+  openConvai(cfg.agentId, cfg.apiKey, prompt);
+}
+function openConvai(agentId, apiKey, prompt){
+  var tries=0;
+  function connect(){
+    tries++;
+    var ws;
+    try{
+      ws=new WebSocket('wss://api.elevenlabs.io/v1/convai/conversation?agent_id='+encodeURIComponent(agentId)+'&xi-api-key='+encodeURIComponent(apiKey));
+    }catch(e){ setVoiceStatus('連接失敗'); return; }
+    voice.conn=ws;
+    var gotMeta=false;
+    ws.onopen=function(){
+      ws.send(JSON.stringify({type:'conversation_initiation_client_data',conversation_config_override:{agent:{dynamic_variables:{lesson_context:prompt}}}}));
+      startMic();
+    };
+    ws.onmessage=function(ev){
+      var d; try{ d=JSON.parse(ev.data); }catch(e){ return; }
+      if(d.type==='conversation_initiation_metadata')gotMeta=true;
+      // 兼容新舊事件格式：新式 *_event 包裹；舊式平鋪欄位
+      var aev=d.audio_event||d.audio||null;
+      var chunk=aev?(typeof aev==='string'?aev:(aev.audio_base_64||aev.chunk||null)):null;
+      var rev=d.agent_response_event||d.agent_response_event_data||null;
+      var uev=d.user_transcript_event||d.user_transcript_event_data||null;
+      var cev=d.conversation_initiation_metadata_event||d.conversation_initiation_metadata_event_data||null;
+      if(d.type==='audio_event'||d.type==='audio'){ if(chunk)playChunk(chunk); }
+      else if(d.type==='agent_response'){ var t=rev?(rev.agent_response||rev.text||''):''; if(t){ pushChat('StudyBuddy', t); maybeShowPicture(t); } }
+      else if(d.type==='user_transcript'){ var u=uev?(uev.user_transcript||uev.text||''):''; if(u)pushChat(S.baby||'寶寶', u); }
+      else if(d.type==='conversation_initiation_metadata'){ setVoiceStatus('已連接 · '+((cev&&cev.conversation_id||'').slice(0,8))); }
+      else if(d.type==='ping'){ try{ ws.send(JSON.stringify({type:'ping'})); }catch(e){} }
+      else if(d.type==='error'){ setVoiceStatus('錯誤：'+JSON.stringify(d.error||d).slice(0,80)); }
+    };
+    ws.onclose=function(){
+      stopMic();
+      if(!gotMeta&&tries<2){ setVoiceStatus('重連中…'); setTimeout(connect,1200); return; } // 平台偶發 init 失敗：重試一次
+      setVoiceStatus('已斷線'); var b=document.getElementById('btnVoice'); if(b)b.textContent='🎤 開始語音課堂'; voice.conn=null;
+    };
+    ws.onerror=function(){ setVoiceStatus('連接錯誤'); };
+  }
+  connect();
+}
+function startMic(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ setVoiceStatus('此瀏覽器不支援麥克風'); return; }
+  navigator.mediaDevices.getUserMedia({audio:{channelCount:1,sampleRate:16000}}).then(function(stream){
+    voice.stream=stream;
+    var actx=new (window.AudioContext||window.webkitAudioContext)(); voice.ctx=actx;
+    var src=actx.createMediaStreamSource(stream);
+    var proc=actx.createScriptProcessor(1024,1,1);
+    src.connect(proc); proc.connect(actx.destination);
+    proc.onaudioprocess=function(e){
+      if(!voice.conn||voice.conn.readyState!==1)return;
+      var inData=e.inputBuffer.getChannelData(0), step=Math.max(1,Math.round(actx.sampleRate/16000));
+      var out=new Int16Array(Math.floor(inData.length/step));
+      for(var i=0,j=0;i<inData.length;i+=step){ var s=inData[i]; out[j++]=Math.round(Math.max(-1,Math.min(1,s))*32767); }
+      var b=new Uint8Array(out.buffer), s2='';
+      for(var k=0;k<b.length;k++)s2+=String.fromCharCode(b[k]);
+      voice.conn.send(JSON.stringify({type:'user_audio_chunk',audio_chunk:btoa(s2)}));
+    };
+  }).catch(function(err){ setVoiceStatus('麥克風失敗：'+err.message); });
+}
+function stopMic(){
+  try{ if(voice.stream)voice.stream.getTracks().forEach(function(t){t.stop();}); }catch(e){}
+  voice.stream=null;
+  try{ if(voice.ctx)voice.ctx.close(); }catch(e){}
+  voice.ctx=null; voice.queue=0;
+}
+function playChunk(b64){
+  if(!b64)return;
+  try{
+    var bin=atob(b64), buf=new Uint8Array(bin.length);
+    for(var i=0;i<bin.length;i++)buf[i]=bin.charCodeAt(i);
+    var pcm=new Int16Array(buf.buffer);
+    if(!voice.ctx)voice.ctx=new (window.AudioContext||window.webkitAudioContext)();
+    var actx=voice.ctx, ab=actx.createBuffer(1,pcm.length,16000), ch=ab.getChannelData(0);
+    for(var j=0;j<pcm.length;j++)ch[j]=pcm[j]/32767;
+    var src=actx.createBufferSource(); src.buffer=ab; src.connect(actx.destination);
+    src.start(actx.currentTime+voice.queue); voice.queue+=ab.duration;
+    src.onended=function(){ voice.queue=Math.max(0,voice.queue-ab.duration); };
+  }catch(e){}
+}
+
 /* ---- Chatbot（依等級動態生成，S.script） ---- */
 var ci=0;
 function pushChat(who,text){
@@ -882,6 +1018,8 @@ function sendChat(){
 }
 </script>
 
+<!-- 本地 ElevenLabs 組態（gitignored；不存在時語音課堂提示設定） -->
+<script src="elevenlabs_config.js"></script>
 <!-- ============ 本地 SQLite（sql.js）：每帳號獨立保存問卷答案與評估快照 ============ -->
 <script src="https://sql.js.org/dist/sql-wasm.js"></script>
 <script>

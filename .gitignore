@@ -3,3 +3,4 @@ studybuddy-*-firebase-adminsdk*.json
 client_secret_*.json
 *.env
 verify/node_modules/
+elevenlabs_config.js
