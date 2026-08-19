@@ -98,6 +98,12 @@ def _deepseek_key():
     v = os.environ.get('DEEPSEEK_API_KEY', '').strip()
     if v:
         return v
+    for k, val in os.environ.items():  # 容錯：任何含 DEEPSEEK 的變數（大小寫不拘）
+        ku = k.upper()
+        if 'DEEPSEEK' in ku and ('KEY' in ku or 'TOKEN' in ku or ku.endswith('DEEPSEEK')):
+            val = val.strip()
+            if val:
+                return val
     try:
         for line in open(os.path.join(ROOT, '.env'), encoding='utf-8'):
             if line.strip().startswith('DEEPSEEK_API_KEY='):
@@ -312,7 +318,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         path = self.path.split('?')[0]
         if path == '/healthz':
             host = urllib.parse.urlparse(DB_URL).hostname if DB_URL else None
-            self._send_json(200, {'ok': True, 'db': bool(DB_URL), 'db_host': host, 'db_err': _db_err or None})
+            self._send_json(200, {
+                'ok': True, 'db': bool(DB_URL), 'db_host': host, 'db_err': _db_err or None,
+                'deepseek': bool(_deepseek_key()), 'voice_id': _voice_id() or None,
+            })
             return
         if path == '/api/state':
             try:
