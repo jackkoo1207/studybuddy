@@ -112,10 +112,10 @@ vm.createContext(sandbox);
 
   const WEAK_ANSWERS = { inParent: '陳太', inBaby: '小宇', inBirth: '2022-08-01', inNote: '好動坐不住', E1: '15–30 分鐘', E3: '有時', E4: '每週數次' };
   const setPhys = (strong = true) => {
-    sandbox.S.V5 = 3; sandbox.S.V6 = 3; sandbox.S.A5 = 3;
+    sandbox.S.V5 = 3; sandbox.S.V6 = 3; sandbox.S.A5 = strong ? 3 : 1;   // 弱聽覺：A5 未達（落後窗底 ≥2 階段）→ 薄弱項
     sandbox.S.R1 = 3; sandbox.S.R2 = 3; sandbox.S.R3 = 2; sandbox.S.R4 = 1;  // 閱讀階梯 3 → L2
     sandbox.S.SP1 = 3; sandbox.S.SP2 = 3; sandbox.S.SP3 = 1;                  // 拼寫階梯 2（不升等）
-    sandbox.S.A6 = strong ? 3 : 1;                                            // 弱聽覺 → 薄弱項
+    sandbox.S.A6 = strong ? 3 : 1;
   };
 
   // ---- flow 1: register + fill + submit => levels/mistakes/progress/chat derived; persisted server-side ----
@@ -133,6 +133,17 @@ vm.createContext(sandbox);
   check('1: week1 focus mentions weak area, no baked 第N週 prefix', !/^第\s*\d+\s*週/.test(sandbox.S.teachingPlan.weeks[0].focus) && sandbox.S.teachingPlan.weeks[0].focus.indexOf('薄弱項') >= 0);
   check('1: answers + plan persisted to server store', Object.keys(store('t1').answers).length >= 20 && store('t1').plan !== null);
   const genAt = sandbox.S.teachingPlan.generated_at;
+
+  // ---- regression: stage at window bottom (1 behind) must NOT be flagged weak ----
+  {
+    const bak = Object.assign({}, sandbox.S);
+    sandbox.S.months = 48; sandbox.S.physWindow = [5, 7];            // ps=6：窗 [5,7]
+    ['V5','V6','V7','A5','A6','A7'].forEach(k => delete sandbox.S[k]);
+    sandbox.S.V5 = 3; sandbox.S.V6 = 1; sandbox.S.A5 = 3; sandbox.S.A6 = 1;  // 視覺/聽覺 第5階段＝窗底
+    const r = sandbox.physAssessment();
+    check('R: stage-5 at ps6 window bottom is NOT weak', r.pathways.visual.stage === 5 && r.pathways.auditory.stage === 5 && r.weak.length === 0);
+    Object.assign(sandbox.S, bak);
+  }
 
   // ---- flow 2: complete lesson => schedule advances + persisted server-side ----
   vm.runInContext('completeLesson();', sandbox);

@@ -566,7 +566,7 @@ function physAssessment(){
     var st=stageOf(p.key);
     res.pathways[p.key]={name:p.name,stage:st};
     stages.push(st);
-    if(p.dev&&st<ps)res.weak.push(p.name);   // 閱讀/拼寫是學習目標，不算發展落後
+    if(p.dev&&st<ps-1)res.weak.push(p.name);   // 落後月齡窗底（≥2 階段）才算薄弱；僅落後 1 階段＝窗底＝正常範圍
     if(p.dev&&st>ps)res.strong.push(p.name);
   });
   var sorted=stages.slice().sort(function(a,b){return a-b;});
