@@ -253,7 +253,7 @@ RULES:
    - L3: all four; "What is this?" Q&A; phonics first sounds (b-b-ball).
    - L4: all four; role-play dialogue, story retelling, spelling aloud (c-a-t).
 3. Emphasis — weak points and parent interest decide the pillar mix:
-   - Weak pathways (profile.phys.weak): 視覺->Vision, 聽覺->Hear. The weak pillar gets the MAJORITY of lessons across all 4 weeks (e.g. weak 聽覺 -> most lessons are Hear: listening games, TPR, songs; weak 視覺 -> Vision games every week: card gazing/tracking). The FIRST lesson of week 1 is a targeted reinforcement game for the weakest pathway; week 1 focus must include the text 針對薄弱項 and list the weak pathways (e.g. 針對薄弱項：聽覺).
+   - Weak pathways (profile.phys.weak = the TWO LOWEST-scoring dimensions of Vision/Hear/Read/Spell): 視覺->Vision, 聽覺->Hear, 閱讀->Read, 拼寫->Spell. The weak pillars get the MAJORITY of lessons across all 4 weeks (e.g. weak 聽覺 -> most lessons are Hear: listening games, TPR, songs; weak 視覺 -> Vision games every week: card gazing/tracking). The FIRST lesson of week 1 is a targeted reinforcement game for the weakest pathway; week 1 focus must include the text 針對薄弱項 and list the weak pathways (e.g. 針對薄弱項：視覺、拼寫).
    - Parent interest (profile.goal): 視覺->Vision-heavy; 聽覺->Hear-heavy; 閱讀->Read-heavy; 拼寫->Spell-heavy.
    - Weak points outrank the goal when they conflict. No weak pathways -> follow the goal; no goal (or legacy value) -> balanced rotation of all four pillars.
 4. Every activity must be executable by the parent at home with everyday objects (toys, picture cards, songs, body parts). Short, slow, encouraging English (max 8 words per sentence in the spoken part). Respect dosage: each session <= session_min minutes, screens <= screen_cap_min minutes per day.

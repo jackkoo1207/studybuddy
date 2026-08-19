@@ -136,15 +136,24 @@ vm.createContext(sandbox);
   check('1: answers + plan persisted to server store', Object.keys(store('t1').answers).length >= 20 && store('t1').plan !== null);
   const genAt = sandbox.S.teachingPlan.generated_at;
 
-  // ---- regression: stage at window bottom (1 behind) must NOT be flagged weak ----
+  // ---- regression: stage=Σ(level×score)/4; weak = lowest 2 dimensions ----
   {
     const bak = Object.assign({}, sandbox.S);
-    sandbox.S.months = 48;                                          // ps=6
-    ['V1','V2','V3','V4','V5','V6','V7','A1','A2','A3','A4','A5','A6','A7'].forEach(k => delete sandbox.S[k]);
-    ['V1','V2','V3','V4','V5','A1','A2','A3','A4','A5'].forEach(k => { sandbox.S[k] = 3; }); // 1–5 階段達成
-    sandbox.S.V6 = 1; sandbox.S.A6 = 1;                             // 視覺/聽覺 第5階段（僅落後 1 階段）
-    const r = sandbox.physAssessment();
-    check('R: stage-5 at ps6 (1 behind) is NOT weak', r.pathways.visual.stage === 5 && r.pathways.auditory.stage === 5 && r.weak.length === 0);
+    sandbox.S.months = 48;
+    ['V1','V2','V3','V4','V5','V6','V7','A1','A2','A3','A4','A5','A6','A7','R1','R2','R3','R4','R5','R6','R7','SP1','SP2','SP3','SP4','SP5','SP6','SP7'].forEach(k => delete sandbox.S[k]);
+    // 四維度完全均衡（1–5 階段 3 分、第 6 階段 1 分）→ 無薄弱
+    ['V1','V2','V3','V4','V5','A1','A2','A3','A4','A5','R1','R2','R3','R4','R5','SP1','SP2','SP3','SP4','SP5'].forEach(k => { sandbox.S[k] = 3; });
+    ['V6','A6','R6','SP6'].forEach(k => { sandbox.S[k] = 1; });
+    const r1 = sandbox.physAssessment();
+    check('R: equal-high 4 dims => no weak', r1.weak.length === 0 && r1.strong.length === 0);
+    // 用戶案例：視覺4 聽覺5 閱讀6 拼寫4 → 薄弱＝視覺＋拼寫
+    ['V1','V2','V3','V4','V5','V6','V7','A1','A2','A3','A4','A5','A6','A7','R1','R2','R3','R4','R5','R6','R7','SP1','SP2','SP3','SP4','SP5','SP6','SP7'].forEach(k => delete sandbox.S[k]);
+    ['V1','V2','V3','V4','A1','A2','A3','A4','R1','R2','R3','R4','R5','R6','SP1','SP2','SP3'].forEach(k => { sandbox.S[k] = 3; });
+    sandbox.S.V5 = 1; sandbox.S.A5 = 1; sandbox.S.A6 = 1; sandbox.S.SP4 = 1;
+    const r2 = sandbox.physAssessment();
+    check('R: lowest-2 rule picks Vision+Spelling',
+      JSON.stringify(r2.weak.slice().sort()) === JSON.stringify(['拼寫','視覺']) &&
+      JSON.stringify(r2.strong.slice().sort()) === JSON.stringify(['聽覺','閱讀']));
     Object.assign(sandbox.S, bak);
   }
 

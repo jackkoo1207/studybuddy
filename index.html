@@ -360,7 +360,7 @@ function renderSettings(){
     '<b>數字人對話</b><div>'+(p.safety.ok?'<span class="pill deep">已開啟</span>':'<span class="pill">未開啟（未滿 3 歲或 L0：僅聲音暴露）</span>')+'</div>'+
     '<b>Doman 生理階段</b><div>第 '+(ph?ph.physiological:'—')+' 階段（月齡 '+S.months+' 個月）</div>'+
     '<b>整體發育</b><div>第 '+(ph?ph.overall:'—')+' 階段</div>'+
-    '<b>四維度</b><div>'+(ph?PATHWAYS.map(function(x){return x.name+' 第'+ph.pathways[x.key].stage+'階段';}).join(' ｜ '):'—')+'</div>'+
+    '<b>四維度</b><div>'+(ph?PATHWAYS.map(function(x){return x.name+' 第'+fmtStage(ph.pathways[x.key].stage)+'階段';}).join(' ｜ '):'—')+'</div>'+
     '<b>薄弱項</b><div>'+(ph&&ph.weak.length?ph.weak.join('、'):'—')+'</div>'+
     '<b>優勢項</b><div>'+(ph&&ph.strong.length?ph.strong.join('、'):'—')+'</div>'+
     '<b>分量</b><div>每次 '+p.dosage.session_min+' 分 × '+p.dosage.frequency_per_week+' 次/週（共 '+p.dosage.weekly_min+' 分）· 模式 '+p.dosage.mode+'</div>'+
@@ -405,6 +405,15 @@ function stageOf(key){
   }
   return st;
 }
+function stageScore(key){
+  var p=null;
+  PATHWAYS.forEach(function(x){ if(x.key===key)p=x; });
+  if(!p)return 0;
+  var tot=0;
+  p.questions.forEach(function(q){ tot+=q[1]*(parseInt(S[q[0]],10)||0); });
+  return tot/4;   // 四維度階段＝Σ(階段級別×得分)／4
+}
+function fmtStage(v){ return String(Math.round(v*10)/10); }
 function englishLevel(){
   var m=S.months;
   if(m<18)return "L0";
@@ -555,17 +564,22 @@ function renderPhys(){
   }).join('');
 }
 function physAssessment(){
-  var ps=physStageOf(S.months);
-  var res={physiological:ps,pathways:{},weak:[],strong:[],overall:0}, stages=[];
+  var res={physiological:physStageOf(S.months),pathways:{},weak:[],strong:[],overall:0}, arr=[];
   PATHWAYS.forEach(function(p){
-    var st=stageOf(p.key);
+    var st=stageScore(p.key);
     res.pathways[p.key]={name:p.name,stage:st};
-    stages.push(st);
-    if(p.dev&&st<ps-1)res.weak.push(p.name);   // 落後月齡窗底（≥2 階段）才算薄弱；僅落後 1 階段＝窗底＝正常範圍
-    if(p.dev&&st>ps)res.strong.push(p.name);
+    arr.push({name:p.name,st:st});
   });
-  var sorted=stages.slice().sort(function(a,b){return a-b;});
-  res.overall=Math.round((sorted[1]+sorted[2])/2);   // 四維度中位數
+  arr.sort(function(a,b){return a.st-b.st;});
+  var s2=arr[1].st, s3=arr[2].st;
+  if(s2<s3){ // 最低 2 維度與較高維度有明顯差距 → 薄弱＝最低 2；優勢＝最高 2
+    res.weak=arr.slice(0,2).map(function(x){return x.name;});
+    res.strong=arr.slice(2,4).map(function(x){return x.name;});
+  }else{     // 低分群有 3+ 個維度並列 → 只有真正更低的算薄弱
+    res.weak=arr.filter(function(x){return x.st<s3;}).map(function(x){return x.name;});
+    res.strong=arr.filter(function(x){return x.st>s2;}).map(function(x){return x.name;});
+  }
+  res.overall=Math.round((s2+s3)/2);   // 四維度中位數
   return res;
 }
 
@@ -663,7 +677,7 @@ function generateTeachingPlanLocal(){
     weeks.push({week:w,focus:t[w-1],lessons:lessons});
   }
   if(weak.length){
-    var wm={視覺:"Vision",聽覺:"Hear"};
+    var wm={視覺:"Vision",聽覺:"Hear",閱讀:"Read",拼寫:"Spell"};
     var wp=wm[weak[0]]||"Hear";
     weeks[0].focus=t[0]+"（針對薄弱項："+weak.join("、")+"）";
     var rn=["小遊戲","聽辨練習","追蹤練習","鞏固複習"];
