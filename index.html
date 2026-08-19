@@ -273,6 +273,7 @@
         <div class="tab" data-tab="chat" onclick="tab('chat')">Chatbot</div>
         <div class="tab" data-tab="mistake" onclick="tab('mistake')">概念性錯誤</div>
         <div class="tab" data-tab="sched" onclick="tab('sched')">時間表</div>
+        <div class="tab" data-tab="settings" onclick="tab('settings')">設定</div>
       </div>
 
       <!-- TAB: PLAN -->
@@ -315,6 +316,14 @@
         <p class="sub" id="schedSub"></p>
         <div class="sched" id="schedGrid"></div>
         <div class="note">原型以本地排課演示；真實上線可匯入／匯出 Google Calendar（見 Task.md）。</div>
+      </div>
+
+      <!-- TAB: SETTINGS -->
+      <div id="tab-settings" class="hidden">
+        <h2>設定</h2>
+        <p class="sub">目前寶寶的等級總覽（依問卷作答自動評級）。</p>
+        <div class="kv" id="settingsKV"></div>
+        <div class="note">英語等級由 EA/EB 作答計算；Doman 階段由六通路觀察計算；城市線級會校正環境等級（effective_env）。</div>
       </div>
     </div>
   </section>
@@ -376,9 +385,27 @@ function go(v){
 }
 function tab(t){
   document.querySelectorAll('.tab').forEach(function(x){x.classList.toggle('on',x.dataset.tab===t);});
-  ['plan','chat','mistake','sched'].forEach(function(x){
+  ['plan','chat','mistake','sched','settings'].forEach(function(x){
     document.getElementById('tab-'+x).classList.toggle('hidden',x!==t);
   });
+  if(t==='settings') renderSettings();
+}
+function renderSettings(){
+  if(!S.plan){ document.getElementById('settingsKV').innerHTML='<b>尚未評估</b><div>請先完成問卷提交。</div>'; return; }
+  var p=S.plan, lvl=S.level, ph=S.phys;
+  document.getElementById('settingsKV').innerHTML=
+    '<b>英語等級</b><div><span class="pill strong">'+lvl+'</span> '+LEVEL_NAME[lvl]+'</div>'+
+    '<b>環境等級</b><div>env '+p.segment.env_level+' → 校正 '+p.segment.effective_env+'</div>'+
+    '<b>環境×基礎</b><div>'+p.segment.matrix_cell+'</div>'+
+    '<b>數字人對話</b><div>'+(p.safety.ok?'<span class="pill deep">已開啟</span>':'<span class="pill">未開啟（未滿 3 歲或 L0：僅聲音暴露）</span>')+'</div>'+
+    '<b>Doman 生理階段</b><div>第 '+(ph?ph.physiological:'—')+' 階段（月齡 '+S.months+' 個月）</div>'+
+    '<b>整體發育</b><div>第 '+(ph?ph.overall:'—')+' 階段</div>'+
+    '<b>六通路</b><div>'+(ph?PATHWAYS.map(function(x){return x.name+' 第'+ph.pathways[x.key].stage+'階段';}).join(' ｜ '):'—')+'</div>'+
+    '<b>薄弱項</b><div>'+(ph&&ph.weak.length?ph.weak.join('、'):'—')+'</div>'+
+    '<b>優勢項</b><div>'+(ph&&ph.strong.length?ph.strong.join('、'):'—')+'</div>'+
+    '<b>分量</b><div>每次 '+p.dosage.session_min+' 分 × '+p.dosage.frequency_per_week+' 次/週（共 '+p.dosage.weekly_min+' 分）· 模式 '+p.dosage.mode+'</div>'+
+    '<b>城市線級</b><div>'+(S.tier||'—')+'</div>'+
+    '<b>性格原型</b><div>'+ARCH_ZH[p.personality.primary]+'（'+p.personality.primary+'）</div>';
 }
 
 function monthsFrom(d){
