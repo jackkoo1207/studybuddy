@@ -406,6 +406,7 @@ var CONTENT_STYLE={"L0":"聲音暴露＋律動","L1":"TPR＋實物命名","L2":"
 /* 登入：純前端 localStorage 示範（無後端、無 Firebase）。 */
 
 var S={}; // 全域狀態
+S.generating=false; // 計畫生成中（DeepSeek 慢 → 顯示進度而非無回應）
 
 /* 選項 chip 綁定（事件委派：涵蓋動態生成的 phys 題目） */
 document.addEventListener('click',function(e){
@@ -819,6 +820,8 @@ function generateTeachingPlan(){
   return fetchPlanAttempt(profile,2); // 2 次嘗試：DeepSeek 高負載時單次可能需 1–3 分鐘
 }
 function fetchPlanAttempt(profile,left){
+  S.generating=true;
+  try{ renderPlan(); }catch(e){}   // 立即顯示「正在生成…」狀態
   var ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
   var timer=ctrl?setTimeout(function(){ctrl.abort();},200000):null; // 200s/次；絕不卡死
   return apiFetch('POST','/api/generate-plan',profile,ctrl).then(function(res){
@@ -833,7 +836,11 @@ function fetchPlanAttempt(profile,left){
     generateTeachingPlanLocal();   // 伺服器／DeepSeek 不可用 → 本地規則版
     S.plan_source='local';
     return S.teachingPlan;
-  }).finally(function(){ if(timer)clearTimeout(timer); });
+  }).finally(function(){
+    if(timer)clearTimeout(timer);
+    S.generating=false;
+    try{ renderPlan(); }catch(e){}
+  });
 }
 function regeneratePlan(){
   var btn=document.getElementById('btnRegen');
@@ -862,13 +869,15 @@ function autoRegenerate(){
 function renderPlan(){
   var lvl=S.level, dos=S.plan&&S.plan.dosage, tp=S.teachingPlan;
   document.getElementById('planTitle').textContent=(S.baby||'寶寶')+' 的教學計畫';
-  var srcNote = (S.plan_source==='local') ? '<div class="note">⚠️ DeepSeek 暫時無法連線，此計畫為本地規則版。點「重新生成（DeepSeek）」重試即可，無需重填問卷。</div>' : '';
+  var genNote = S.generating
+    ? '<div class="note" style="border-color:#8ecae6;background:#f0f8ff">⏳ AI 正在生成新計畫…（DeepSeek，約 1–3 分鐘，完成後會自動更新本頁）</div>'
+    : ((S.plan_source==='local') ? '<div class="note">⚠️ DeepSeek 暫時無法連線，此計畫為本地規則版。點「重新生成（DeepSeek）」重試即可，無需重填問卷。</div>' : '');
   document.getElementById('planSub').innerHTML=
-    srcNote+
+    genNote+
     '英語等級 <span class="pill strong">'+lvl+'</span> '+LEVEL_NAME[lvl]
     +(dos?' ｜ 每週 '+dos.frequency_per_week+' 次 × 每次 '+dos.session_min+' 分':'')
     +(tp?' ｜ 計畫生成於 '+tp.generated_at+'（首次註冊生成一次，登入不會重算；課後 agent 可依學習速度微調，預設不調整）':'')
-    +' <button id="btnRegen" onclick="regeneratePlan()" style="margin-left:8px">🔄 重新生成（DeepSeek）</button>';
+    +' <button id="btnRegen" onclick="regeneratePlan()" style="margin-left:8px"'+(S.generating?' disabled':'')+'>'+(S.generating?'⏳ 生成中…':'🔄 重新生成（DeepSeek）')+'</button>';
   renderToday(); renderWeeks();
   var pr=S.progress;
   document.getElementById('progressKV').innerHTML=

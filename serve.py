@@ -314,6 +314,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *a, **k):
         super().__init__(*a, directory=ROOT, **k)
 
+    def end_headers(self):
+        # HTML 每次重新驗證：部署後用戶不會拿到舊版 JS
+        if self.path.split('?')[0].endswith('.html'):
+            self.send_header('Cache-Control', 'no-cache')
+        super().end_headers()
+
     # --- helpers ---
     def _send_json(self, code, obj):
         body = json.dumps(obj, ensure_ascii=False).encode('utf-8')
