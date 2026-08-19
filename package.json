@@ -1,0 +1,8 @@
+{
+  "name": "studybuddy",
+  "private": true,
+  "description": "StudyBuddy 學前英語陪練 prototype (static GitHub Pages site). Verification harness lives in verify/.",
+  "scripts": {
+    "test": "npm --prefix verify install --no-audit --no-fund && npm --prefix verify test"
+  }
+}
