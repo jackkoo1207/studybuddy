@@ -154,16 +154,36 @@ def _packy_key():
 
 
 def generate_image(prompt, model=None):
-    """PackyAPI /v1/images/generations（OpenAI 相容）。回傳 (url_or_dataurl, err)。"""
+    """PackyAPI 出圖：Gemini 系（gemini/banana/nano）走 /v1/chat/completions（回傳 markdown
+    ![image](data:...)），其餘（gpt-image-2 等）走 /v1/images/generations（OpenAI 相容）。
+    回傳 (url_or_dataurl, err)。"""
     key = _packy_key()
     if not key:
         return None, '未設定 PACKY_CODE_API_KEY（Railway 環境變數）'
-    body = {'model': model or PACKY_IMAGE_MODEL, 'prompt': prompt, 'n': 1, 'size': '1024x1024'}
-    req = urllib.request.Request(
-        PACKY_BASE_URL.rstrip('/') + '/v1/images/generations',
-        data=json.dumps(body).encode(),
-        headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
-        method='POST')
+    model = model or PACKY_IMAGE_MODEL
+    base = PACKY_BASE_URL.rstrip('/')
+    if any(k in model.lower() for k in ('gemini', 'banana', 'nano')):
+        body = {'model': model, 'messages': [{'role': 'user', 'content': [{'type': 'text', 'text': prompt}]}], 'max_tokens': 4096}
+        req = urllib.request.Request(base + '/v1/chat/completions', data=json.dumps(body).encode(),
+                                     headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
+                                     method='POST')
+        try:
+            r = json.loads(urllib.request.urlopen(req, timeout=120).read().decode())
+            c = r['choices'][0]['message'].get('content')
+            text = c if isinstance(c, str) else ''.join(p.get('text', '') for p in c if isinstance(p, dict))
+            m = re.search(r'!\[[^\]]*\]\((data:image/[^)]+|https?://[^)]+)\)', text or '')
+            if m:
+                return m.group(1), None
+            return None, 'Gemini 回傳未含圖片'
+        except urllib.error.HTTPError as e:
+            msg = (e.read().decode() or str(e))[:200] if e.fp else str(e)[:200]
+            return None, 'PackyAPI %s: %s' % (e.code, msg)
+        except Exception as e:
+            return None, 'PackyAPI 失敗：%s' % str(e)[:160]
+    body = {'model': model, 'prompt': prompt, 'n': 1, 'size': '1024x1024'}
+    req = urllib.request.Request(base + '/v1/images/generations', data=json.dumps(body).encode(),
+                                 headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
+                                 method='POST')
     try:
         r = json.loads(urllib.request.urlopen(req, timeout=90).read().decode())
         data = r.get('data') or []
