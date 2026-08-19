@@ -1,0 +1,4 @@
+# secrets — never commit
+studybuddy-*-firebase-adminsdk*.json
+client_secret_*.json
+*.env
