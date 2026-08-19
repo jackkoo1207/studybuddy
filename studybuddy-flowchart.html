@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StudyBuddy 架構流程圖 — 我的理解</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<style>
+  :root{
+    --green:#2a9d5c; --green-bg:#e8f5ec;
+    --amber:#d99a2b; --amber-bg:#fdf3e3;
+    --red:#e05d3a;   --red-bg:#fdecea;
+    --ink:#1b2a4a; --line:#dce3f0; --card:#ffffff; --bg:#f4f6fb;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Segoe UI","Microsoft JhengHei",system-ui,sans-serif;background:var(--bg);color:var(--ink);padding:32px 24px}
+  .wrap{max-width:1180px;margin:0 auto}
+  h1{font-size:22px;margin-bottom:4px}
+  .sub{color:#5a6a8a;font-size:14px;margin-bottom:20px}
+  h1 .badge{font-size:12px;vertical-align:middle;margin-left:8px;padding:3px 10px;border-radius:999px;background:#eef2fb;color:#3b5bdb}
+  .legend{display:flex;gap:14px;margin:14px 0 20px;flex-wrap:wrap}
+  .lg{display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:5px 12px;border-radius:999px;border:1px solid var(--line);background:var(--card)}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .d-done{background:var(--green)} .d-part{background:var(--amber)} .d-miss{background:var(--red)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:20px;box-shadow:0 1px 3px rgba(27,42,74,.05)}
+  .card h2{font-size:15px;margin-bottom:12px}
+  #mermaid-box{overflow-x:auto;padding:6px 0}
+  .mermaid{display:flex;justify-content:center}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid #edf1f8;vertical-align:top}
+  th{background:#f7f9fd;font-weight:600;font-size:12.5px;color:#5a6a8a}
+  tr:last-child td{border-bottom:none}
+  .st{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
+  .st-ok{background:var(--green-bg);color:var(--green)}
+  .st-part{background:var(--amber-bg);color:#a06d12}
+  .st-miss{background:var(--red-bg);color:var(--red)}
+  code{background:#eef2fb;border-radius:5px;padding:1px 6px;font-size:12px;font-family:Consolas,monospace}
+  .miss-list li{margin:7px 0 0 18px;font-size:13.5px;line-height:1.55}
+  .miss-list b{color:var(--red)}
+  .foot{margin-top:16px;font-size:12.5px;color:#8a97b5;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>StudyBuddy 架構流程圖<span class="badge">我的理解 v1</span></h1>
+  <div class="sub">原 flowchart 逐節點對照實作狀態：🟢 已實作 ｜ 🟡 部分實作 ｜ 🔴 未實作（迴圈缺口）</div>
+
+  <div class="legend">
+    <span class="lg"><span class="dot d-done"></span> 已實作</span>
+    <span class="lg"><span class="dot d-part"></span> 部分實作</span>
+    <span class="lg"><span class="dot d-miss"></span> 未實作 — 迴圈在此斷開</span>
+  </div>
+
+  <div class="card">
+    <h2>圖一：完整流程（含 Tutor 能力）</h2>
+    <div id="mermaid-box">
+    <pre class="mermaid">
+flowchart LR
+    Q["Questionnaire<br/>📋"] --> AB["Assessment:<br/>Vision / Hearing / Reading / Spelling<br/>+ Parent Intent"]
+    AB -->|"Initial analysis"| WS["Weak spot of babies<br/>🎯"]
+    WS --> LPA["Lesson planner agent<br/>🤖 DeepSeek"]
+    LPA -->|"Initial draft"| WL["4-week lesson<br/>📅"]
+    LPA -.->|"revise after lesson 🔴"| WL
+    WL --> TA["Tutor agent<br/>🗣️ ElevenLabs"]
+    TA --> PB["Practice:<br/>Popup Quiz 🟡<br/>Post Lesson HW 🟡<br/>Focusing on 4 area"]
+    PB --> WPA["Weekly Progress analytics<br/>📊 🟡"]
+    WPA -.->|"Baby Improve / Or need more work 🔴"| WS
+    TA -.-> TC["Tutor capabilities:<br/>1. Speak ✅<br/>2. Hearing ✅<br/>3. Writing on whiteboard ✅<br/>4. Showing image 🟡"]
+
+    classDef done fill:#e8f5ec,stroke:#2a9d5c,stroke-width:2px;
+    classDef part fill:#fdf3e3,stroke:#d99a2b,stroke-width:2px;
+    classDef miss fill:#fdecea,stroke:#e05d3a,stroke-width:2px;
+    class Q,AB,WS,LPA,WL,TA,TC done;
+    class PB,WPA part;
+    linkStyle 7 stroke:#e05d3a,stroke-width:2.5px,stroke-dasharray:6 4;
+    linkStyle 2 stroke:#e05d3a,stroke-width:2px,stroke-dasharray:6 4;
+    </pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>逐節點理解 ⇄ 實作對照</h2>
+    <table>
+      <tr><th>流程節點</th><th>我的理解（這步在幹嘛）</th><th>目前實作在哪</th><th>狀態</th></tr>
+      <tr><td><b>Questionnaire</b></td><td>家長填寫背景 + 四維度評估 + 目標</td><td>index.html 問卷（出生日期／F1 線級／E1/E3/E4／G1–G3／V/A/R/SP 階梯）</td><td><span class="st st-ok">✅ 已實作</span></td></tr>
+      <tr><td><b>Assessment</b></td><td>算出四維度階段：視覺／聽覺＝發展通路，閱讀／拼寫＝能力階梯</td><td><code>physAssessment()</code> + <code>englishLevel()</code>（R/SP 階梯 → L0–L4）</td><td><span class="st st-ok">✅ 已實作</span></td></tr>
+      <tr><td><b>Weak spot of babies</b></td><td>從評估找出薄弱項（視覺／聽覺落後於月齡）＋家長想優先提升的目標</td><td><code>S.phys.weak</code>（視覺/聽覺）＋ <code>S.goal</code>（G1）傳入 DeepSeek</td><td><span class="st st-ok">✅ 已實作</span></td></tr>
+      <tr><td><b>Lesson planner agent</b></td><td>依弱點＋目標＋等級，生成個人化 4 週計畫；課後依進度修訂</td><td><code>POST /api/generate-plan</code> → DeepSeek（prompt 讀 <code>lesson-planner-agent.md</code>，rule 3 強調弱點與目標）</td><td><span class="st st-ok">✅ 初始草稿</span> <span class="st st-miss">🔴 課後修訂</span></td></tr>
+      <tr><td><b>4-week lesson</b></td><td>每週主題＋每週 N 課（Day 1..N，支柱、活動、目標詞、時長）</td><td>計畫 JSON <code>{weeks:[{focus, lessons:[{pillar,activity,how,words,goal}]}]}</code>；本地降級版 <code>generateTeachingPlanLocal()</code></td><td><span class="st st-ok">✅ 已實作</span></td></tr>
+      <tr><td><b>Tutor agent</b></td><td>數字人導師按今天這一課執行：先規劃 LessonPlan 再逐步教</td><td>ElevenLabs Convai（<code>PROTOCOL_TEXT</code> + <code>buildAgentContext()</code> 注入 lesson_context；<code>tutor-agent.md</code> 為系統提示）</td><td><span class="st st-ok">✅ 已實作</span></td></tr>
+      <tr><td><b>Practice</b></td><td>課堂練習：彈出小測驗、課後作業、針對四維度</td><td>課堂內已有：常錯複習 3 步 + 昨日複習 2 步 + 今日 10 步 + 總結 1 步</td><td><span class="st st-part">🟡 課內練習有，彈出測驗／課後作業沒有</span></td></tr>
+      <tr><td><b>Weekly Progress analytics</b></td><td>每週統計進步：哪些維度提升、哪些還需加強</td><td>只有一次性 <code>buildProgress()</code>（mastered/pillars/next）＋ schedule 完成數；<b>沒有週期性對比</b></td><td><span class="st st-part">🟡 靜態進度，無週 delta</span></td></tr>
+      <tr><td><b>WPA → WS 回饋迴圈</b></td><td>「有進步 / 還需加強」回寫到薄弱項，計畫隨之調整</td><td>—（計畫生成一次後不自動重算；只有手動「重新生成」按鈕）</td><td><span class="st st-miss">🔴 迴圈斷開</span></td></tr>
+      <tr><td><b>Tutor capabilities</b></td><td>說話／聽／白板寫字／顯示圖片</td><td>說話=TTS ✅ ｜ 聽=麥克風 STT ✅ ｜ 白板=<code>draw_on_whiteboard</code> ✅ ｜ 圖片=僅已知單字自動 Twemoji 🟡（無 agent 可呼叫的「顯示圖片」工具）</td><td><span class="st st-ok">✅ 3/4</span> <span class="st st-part">🟡 圖片</span></td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>要閉合迴圈，缺這四件事</h2>
+    <ul class="miss-list">
+      <li><b>1. 課後練習資料</b> — Popup Quiz（課後彈出 2–3 題小測，答案寫回）＋ Post Lesson HW（家長可執行的課後任務）</li>
+      <li><b>2. Weekly Progress analytics</b> — 每週結束計算四維度進步（本週 vs 上週：測驗正確率、完成課數、mastered 增量），寫入進度記憶</li>
+      <li><b>3. 回饋邊 WPA → WS</b> — 進步的維度移出弱點清單；仍落後的維度提升為下一週強化重點</li>
+      <li><b>4. 計畫自動修訂</b> — 每週結束依新弱點清單重新生成（保留已完成進度），取代目前的一次性生成</li>
+      <li>（小項）<b>Tutor 圖片工具</b> — 讓 agent 能主動呼叫「顯示圖片」而非只有白板文字＋被動 emoji</li>
+    </ul>
+  </div>
+
+  <div class="foot">StudyBuddy — flowchart 理解驗證 ｜ 資料來源：index.html / serve.py / Agent knowledge base（兩個 agent prompt）</div>
+</div>
+<script>
+  mermaid.initialize({ startOnLoad:true, theme:'base',
+    themeVariables:{ fontFamily:'"Segoe UI","Microsoft JhengHei",sans-serif', fontSize:'13px',
+      primaryColor:'#ffffff', primaryBorderColor:'#dce3f0', primaryTextColor:'#1b2a4a',
+      lineColor:'#8a97b5' },
+    flowchart:{ curve:'basis', htmlLabels:true } });
+</script>
+</body>
+</html>

@@ -81,6 +81,7 @@
     white-space:pre-wrap;word-break:break-word;text-shadow:0 1px 0 rgba(255,255,255,.85);
     animation:wbIn .35s ease}
   .wb-emoji{position:absolute;top:4%;right:5%;width:16%;max-width:140px;pointer-events:none;animation:wbPop .4s ease}
+  .wb-gen{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);max-width:62%;max-height:78%;border-radius:12px;box-shadow:0 4px 14px rgba(27,42,74,.25);object-fit:contain;background:#fff;animation:wbPop .4s ease}
   @keyframes wbIn{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
   @keyframes wbPop{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
   .avatar-col{display:flex;flex-direction:column;gap:12px;align-items:center;min-width:0}
@@ -248,6 +249,7 @@
           <div class="whiteboard" id="whiteboard">
             <div class="wb-lines" id="wbLines"></div>
             <img class="wb-emoji" id="wbEmoji" style="display:none" alt="word" />
+            <img class="wb-gen" id="wbGen" style="display:none" alt="generated card" />
           </div>
           <div class="avatar-col">
             <div class="avatar-frame" id="avatarFrame"><img src="asserts/Placeholder.jpg" alt="StudyBuddy 導師" /></div>
@@ -257,6 +259,7 @@
         <div class="inputbar">
           <input type="text" id="chatIn" placeholder="輸入英文單字／句子，Enter 送出…" onkeydown="if(event.key==='Enter')sendStudentText()" />
           <button onclick="sendStudentText()">➤ 送出</button>
+          <button id="btnGenImg" onclick="genImage()" title="用 PackyAI 生成今日目標詞圖卡">🖼️ 圖卡</button>
           <button class="micbtn" id="btnMic" onclick="toggleVoiceLesson()" title="語音課堂（與 ElevenLabs Agent 通話）">🎤</button>
         </div>
       </div>
@@ -894,6 +897,27 @@ function setMicLive(on){
   var b=document.getElementById('btnMic'), b2=document.getElementById('btnVoice');
   if(b) b.classList.toggle('live',on);
   if(b2) b2.textContent=on?'⏹ 結束語音課堂':'🎤 開始語音課堂';
+}
+function genImage(){
+  var btn=document.getElementById('btnGenImg');
+  var word=(document.getElementById('chatIn').value||'').trim().toLowerCase();
+  if(!word){
+    var tp=S.teachingPlan, s=S.schedule||{current_week:0,current_lesson:0,completed:[]};
+    var wk=tp&&tp.weeks[s.current_week], ls=wk&&(wk.lessons[s.current_lesson]||wk.lessons[0]);
+    var words=ls&&ls.words?ls.words.split('、'):[];
+    word=words.map(function(w){return w.trim();}).filter(function(w){return w&&w!=='—';})[0]||'cat';
+  }
+  word=word.replace(/[^a-z ]/g,'').trim()||'cat';
+  var prompt='cute simple cartoon '+word+', single subject centered, thick outlines, flat bright colors, plain white background, children flashcard style, no text, no letters';
+  if(btn){btn.disabled=true;btn.textContent='⏳ 生成中…';}
+  apiFetch('POST','/api/gen-image',{prompt:prompt}).then(function(res){
+    if(!res.ok){ alert((res.j&&res.j.error)||'生成失敗'); return; }
+    var g=document.getElementById('wbGen');
+    if(g){ g.src=res.j.url; g.style.display='block'; }
+    pushChat('🖼️ 圖卡', word);
+  }).catch(function(){ alert('無法連接伺服器，請確認已登入'); }).finally(function(){
+    if(btn){btn.disabled=false;btn.textContent='🖼️ 圖卡';}
+  });
 }
 function toggleVoiceLesson(){
   if(voice.conn&&voice.conn.readyState===1){ voice.conn.close(); return; }

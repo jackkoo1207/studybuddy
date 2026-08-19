@@ -374,6 +374,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_json(200, {
                 'ok': True, 'db': bool(DB_URL), 'db_host': host, 'db_err': _db_err or None,
                 'deepseek': bool(_deepseek_key()), 'deepseek_ok': deepseek_ping(), 'voice_id': _voice_id() or None,
+                'packy_image': bool(_packy_key()),
             })
             return
         if path == '/api/state':
@@ -429,6 +430,28 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(500, {'error': err})
                 return
             self._send_json(200, {'url': url, 'voice_id': _voice_id() or None})
+            return
+        if path == '/api/gen-image':
+            # 生成圖卡（PackyAPI）；需要登入（DB 未設定時放行，供本地開發）
+            if DB_URL:
+                with DB_LOCK:
+                    c = db()
+                    if c is None:
+                        self._send_json(503, {'error': 'database not configured'}); return
+                    if user_by_token(c, self._bearer()) is None:
+                        self._send_json(401, {'error': 'unauthorized'}); return
+            body = self._read_json()
+            if not isinstance(body, dict):
+                self._send_json(400, {'error': 'bad request'}); return
+            prompt = (body.get('prompt') or '').strip()
+            if not prompt:
+                self._send_json(400, {'error': '缺少 prompt'}); return
+            if len(prompt) > 200:
+                self._send_json(400, {'error': 'prompt 過長（≤200 字元）'}); return
+            url, err = generate_image(prompt)
+            if err:
+                self._send_json(502, {'error': err}); return
+            self._send_json(200, {'ok': True, 'url': url, 'model': PACKY_IMAGE_MODEL})
             return
         if path == '/api/generate-plan':
             with DB_LOCK:
