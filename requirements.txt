@@ -1,0 +1,1 @@
+# StudyBuddy uses Python stdlib only (http.server) — no packages to install.
