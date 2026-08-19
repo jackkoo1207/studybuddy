@@ -174,7 +174,7 @@
       <select id="E4"><option>每天</option><option>每週數次</option><option>偶爾</option><option>從未</option></select>
 
       <h3>四維度評估</h3>
-      <div class="note">四個維度均顯示全部 1–7 階段題目：視覺／聽覺＝發展通路，閱讀／拼寫＝能力階梯（未學過不算落後）。選項：1 尚未出現 ｜ 2 偶爾 ｜ 3 經常 ｜ 4 穩定。</div>
+      <div class="note">四個維度均顯示全部 1–7 階段題目：視覺／聽覺＝發展通路，閱讀／拼寫＝能力階梯（未學過不算落後）。選項：0 尚未出現 ｜ 1 偶爾 ｜ 2 經常 ｜ 3 穩定。</div>
       <div id="physBox"></div>
 
       <h3>目標與約束</h3>
@@ -398,7 +398,7 @@ function stageOf(key){
   for(var s=1;s<=hi;s++){
     var ok=true;
     p.questions.forEach(function(q){
-      if(q[1]>=lo&&q[1]<=s&&(parseInt(S[q[0]],10)||0)<3)ok=false;
+      if(q[1]>=lo&&q[1]<=s&&(parseInt(S[q[0]],10)||0)<2)ok=false;
     });
     if(!ok)break;
     st=s;
@@ -411,7 +411,8 @@ function stageScore(key){
   if(!p)return 0;
   var tot=0;
   p.questions.forEach(function(q){ tot+=q[1]*(parseInt(S[q[0]],10)||0); });
-  return tot*7/(4*28);   // Σ(階段×得分)／4／(1+2+…+7)×7 → 全滿分＝第 7 階段（封頂）
+  var s=tot*7/(2*28);    // Σ(階段×得分)／2／(1+2+…+7)×7
+  return Math.min(7, Math.round(s));   // 四捨五入、封頂 7
 }
 function fmtStage(v){ return String(Math.round(v*10)/10); }
 function englishLevel(){
@@ -447,7 +448,7 @@ var MISTAKES=[]; // 課堂記錄：尚未上課前保持空白（概念性錯誤
 /* ---- 由問卷答案動態生成的內容（不再硬編碼示範資料） ---- */
 function sScore(k){
   var v=parseInt(S[k],10);
-  return isNaN(v)?3:v;   // 未答視為 3（經常）——中性預設
+  return isNaN(v)?2:v;   // 未答視為 2（經常）——中性預設
 }
 function buildMistakes(){ return []; } // 概念性錯誤需課堂練習中觀察累積；尚未上課 → 空白
 var NEXT_STEPS={"L0":["聲音暴露：每日兒歌 5 分鐘","親子律動：Clap your hands"],
@@ -457,9 +458,9 @@ var NEXT_STEPS={"L0":["聲音暴露：每日兒歌 5 分鐘","親子律動：Cla
   "L4":["角色扮演：At the park","故事複述：看圖說故事"]};
 function buildProgress(lvl, phys){
   var mastered=[];
-  if(sScore('V5')>=4)mastered.push('picture recognition');
-  if(sScore('A4')>=4)mastered.push('understanding words');
-  if(sScore('A5')>=4)mastered.push('following instructions');
+  if(sScore('V5')>=3)mastered.push('picture recognition');
+  if(sScore('A4')>=3)mastered.push('understanding words');
+  if(sScore('A5')>=3)mastered.push('following instructions');
   if(stageOf('reading')>=3)mastered.push('reading single words');
   if(stageOf('reading')>=4)mastered.push('reading phrases');
   if(stageOf('reading')>=5)mastered.push('reading sentences');
@@ -467,7 +468,7 @@ function buildProgress(lvl, phys){
   if(stageOf('spelling')>=5)mastered.push('blending CVC');
   if(stageOf('spelling')>=6)mastered.push('spelling aloud');
   function avg(arr){ return arr.reduce(function(a,b){return a+b;},0)/arr.length; }
-  function pill(v){ return v>=3.5?'ok':(v>=2.5?'building':'early'); }
+  function pill(v){ return v>=2.5?'ok':(v>=1.5?'building':'early'); }
   return {
     mastered_topics: mastered,
     recurring_mistakes: buildMistakes(lvl, phys).map(function(m){
@@ -506,7 +507,7 @@ function buildScript(lvl){
 }
 
 /* ---- 四維度評估（視覺／聽覺＝發展通路，閱讀／拼寫＝能力階梯；全部階段出題） ---- */
-var SCALE=[{v:1,l:'1 尚未出現'},{v:2,l:'2 偶爾'},{v:3,l:'3 經常'},{v:4,l:'4 穩定'}];
+var SCALE=[{v:0,l:'0 尚未出現'},{v:1,l:'1 偶爾'},{v:2,l:'2 經常'},{v:3,l:'3 穩定'}];
 var PATHWAYS=[
  {key:'visual',name:'視覺',dev:true,tag:'發展通路',questions:[
    ['V1',1,'當手電筒光線短暫照向眼睛時，瞳孔會明顯收縮。','用手機閃光燈或小手電，從側面快速照一下，看眼睛是否會縮小。'],
