@@ -66,6 +66,45 @@
   .badge{font-size:11px;padding:2px 8px;border-radius:999px;background:#eef2ff;color:var(--brand)}
   code{background:#f3f5f9;padding:1px 5px;border-radius:5px;font-size:12px}
   @media(max-width:620px){.grid{grid-template-columns:1fr}.kv{grid-template-columns:110px 1fr}}
+
+  /* ===== 白板課堂（whiteboard + talking head + mic）===== */
+  @font-face{font-family:'ZenMaruGothic';src:url('asserts/Zen_Maru_Gothic/zen_maru_bold.woff2') format('woff2');font-weight:700;font-display:swap}
+  .lesson-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .lesson-head .row{margin:0}
+  .lesson{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:14px;align-items:stretch}
+  .whiteboard{position:relative;background:#fff url('asserts/whiteboard.png') center/contain no-repeat;
+    border:1px solid var(--line);border-radius:14px;aspect-ratio:2109/1438;overflow:hidden;
+    box-shadow:inset 0 2px 10px rgba(20,30,60,.07)}
+  .wb-lines{position:absolute;inset:10% 12%;display:flex;flex-direction:column;justify-content:center;
+    align-items:center;gap:3%;pointer-events:none}
+  .wb-line{font-family:'ZenMaruGothic',sans-serif;font-weight:700;line-height:1.2;text-align:center;
+    white-space:pre-wrap;word-break:break-word;text-shadow:0 1px 0 rgba(255,255,255,.85);
+    animation:wbIn .35s ease}
+  .wb-emoji{position:absolute;top:4%;right:5%;width:16%;max-width:140px;pointer-events:none;animation:wbPop .4s ease}
+  @keyframes wbIn{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+  @keyframes wbPop{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+  .avatar-col{display:flex;flex-direction:column;gap:12px;align-items:center;min-width:0}
+  .avatar-frame{width:170px;height:170px;flex:none;border-radius:50%;overflow:hidden;border:3px solid var(--brand);
+    background:#fff;box-shadow:0 4px 14px rgba(20,30,60,.12)}
+  .avatar-frame img{width:100%;height:100%;object-fit:cover;display:block}
+  .avatar-frame.speaking{animation:breathe 1.4s ease infinite}
+  @keyframes breathe{0%,100%{box-shadow:0 0 0 4px rgba(79,124,255,.14)}50%{box-shadow:0 0 0 12px rgba(79,124,255,.28)}}
+  .bubble{width:100%;background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 12px;
+    font-size:13px;max-height:180px;overflow:auto;box-shadow:0 2px 8px rgba(20,30,60,.05)}
+  .bubble .mini{font-size:12px;line-height:1.5}
+  .bubble .mini .who{font-size:10px;color:var(--muted)}
+  .bubble .mini.bot{background:#eef2ff;border-radius:10px;padding:6px 9px;margin:6px 0;display:inline-block;max-width:100%}
+  .bubble .mini.me{background:#e9f7ee;border-radius:10px;padding:6px 9px;margin:6px 0;display:inline-block;max-width:100%}
+  .bubble-empty{color:var(--muted);font-size:12px;text-align:center;padding:14px 4px}
+  .inputbar{display:flex;gap:10px;align-items:center;margin-top:14px}
+  .inputbar input{flex:1;min-width:0}
+  .micbtn{width:56px;height:56px;flex:none;border-radius:50%;font-size:24px;background:var(--brand);color:#fff;
+    display:flex;align-items:center;justify-content:center;transition:transform .15s}
+  .micbtn:active{transform:scale(.94)}
+  .micbtn.live{background:#e74c3c;animation:pulse 1.5s ease infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(231,76,60,.45)}50%{box-shadow:0 0 0 13px rgba(231,76,60,0)}}
+  @media(max-width:720px){.lesson{grid-template-columns:1fr}.avatar-col{flex-direction:row;justify-content:center;flex-wrap:wrap}
+    .avatar-frame{width:112px;height:112px}.bubble{max-height:110px}}
 </style>
 </head>
 <body>
@@ -270,7 +309,7 @@
     <div class="card">
       <div class="tabs">
         <div class="tab on" data-tab="plan" onclick="tab('plan')">教學計畫 / 進度</div>
-        <div class="tab" data-tab="chat" onclick="tab('chat')">Chatbot</div>
+        <div class="tab" data-tab="chat" onclick="tab('chat')">白板課堂</div>
         <div class="tab" data-tab="mistake" onclick="tab('mistake')">概念性錯誤</div>
         <div class="tab" data-tab="sched" onclick="tab('sched')">時間表</div>
         <div class="tab" data-tab="settings" onclick="tab('settings')">設定</div>
@@ -288,26 +327,30 @@
         <div class="kv" id="progressKV"></div>
       </div>
 
-      <!-- TAB: CHAT -->
+      <!-- TAB: CHAT (白板課堂) -->
       <div id="tab-chat" class="hidden">
-        <h2>數字人對話（Chatbot）</h2>
-        <p class="sub">語音課堂：直接與 ElevenLabs Agent 對話（依 §8.3 先規劃 LessonPlan 再逐段執行）；目標詞自動顯示透明卡通圖卡。</p>
-        <div class="picture-card" id="pictureCard" style="display:none;text-align:center;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px">
-          <img id="pictureImg" style="max-height:150px;max-width:100%" alt="word" />
-          <div id="pictureLabel" style="font-size:13px;color:var(--muted)"></div>
+        <div class="lesson-head">
+          <h2>🖍️ 白板課堂</h2>
+          <div class="row">
+            <span class="pill" id="voiceStatus">未連接</span>
+            <button class="ghost" style="padding:6px 12px;font-size:12px" onclick="copyAgentContext()">📋 Agent 上下文</button>
+          </div>
         </div>
-        <div class="chat" id="chatBox"></div>
-        <div class="row">
-          <button id="btnVoice" onclick="toggleVoiceLesson()">🎤 開始語音課堂</button>
-          <span class="pill" id="voiceStatus">未連接</span>
+        <p class="sub">Agent 透過 <code>draw_on_whiteboard</code> 工具把要教的單字／句子寫在白板上（Zen Maru Gothic 手寫感）；孩子可打字或按右側 🎤 直接跟導師說話，導師說話時頭像會「呼吸」。</p>
+        <div class="lesson">
+          <div class="whiteboard" id="whiteboard">
+            <div class="wb-lines" id="wbLines"></div>
+            <img class="wb-emoji" id="wbEmoji" style="display:none" alt="word" />
+          </div>
+          <div class="avatar-col">
+            <div class="avatar-frame" id="avatarFrame"><img src="asserts/Placeholder.jpg" alt="StudyBuddy 導師" /></div>
+            <div class="bubble" id="bubbleLog"><div class="bubble-empty" id="bubbleEmpty">🪑 導師還沒說話…按 🎤 開始課堂</div></div>
+          </div>
         </div>
-        <div class="row">
-          <input type="text" id="chatIn" placeholder="輸入文字回應（模擬）…" style="flex:1" />
-          <button onclick="sendChat()">送出</button>
-        </div>
-        <div class="note">目標詞圖卡使用 Twemoji（透明背景、卡通風格、無浮水印）；文字輸入僅作無麥克風時的模擬。語音耦合：孩子拼讀 aloud（Spell）→ agent 語音辨識接收並口語回饋。</div>
-        <div class="row">
-          <button class="ghost" onclick="copyAgentContext()">📋 複製 Agent 課程上下文</button>
+        <div class="inputbar">
+          <input type="text" id="chatIn" placeholder="輸入英文單字／句子，Enter 送出…" onkeydown="if(event.key==='Enter')sendStudentText()" />
+          <button onclick="sendStudentText()">➤ 送出</button>
+          <button class="micbtn" id="btnMic" onclick="toggleVoiceLesson()" title="語音課堂（與 ElevenLabs Agent 通話）">🎤</button>
         </div>
       </div>
 
@@ -876,12 +919,22 @@ function imageForWord(w){
   if(code) return 'https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/'+code+'.svg';
   return null;
 }
-function showPicture(w){
-  var url=imageForWord(w), card=document.getElementById('pictureCard');
-  if(!url||!card){ if(card)card.style.display='none'; return; }
-  document.getElementById('pictureImg').src=url;
-  document.getElementById('pictureLabel').textContent=w+' 🍌';
-  card.style.display='block';
+var boardLines=0, boardWords=[];
+function drawOnWhiteboard(p){
+  p=p||{}; var text=(p.text||'').trim(); if(!text)return;
+  var wb=document.getElementById('whiteboard'), lines=document.getElementById('wbLines'), em=document.getElementById('wbEmoji');
+  if(!wb||!lines)return;
+  if(p.clear||boardLines>=4){ lines.innerHTML=''; boardLines=0; boardWords=[]; if(em)em.style.display='none'; }
+  var div=document.createElement('div'); div.className='wb-line';
+  var fs=p.font_size||150; if(text.length>12)fs=110; if(text.length>24)fs=78;
+  var bw=wb.clientWidth||560;
+  div.style.fontSize=Math.max(18,Math.round(fs*bw/2109))+'px';
+  div.style.color=p.color||((boardLines%3===1)?'#e05d3a':(boardLines%3===2)?'#2a9d5c':'#1b2a4a');
+  div.style.transform='rotate('+((boardLines%3)-1)*1.8+'deg)';
+  div.textContent=text; lines.appendChild(div); boardLines++;
+  var word=text.toLowerCase().replace(/[^a-z ]/g,'').trim().split(/\s+/).filter(Boolean)
+    .find(function(x){ return EMOJI_WORDS[x]||EMOJI_WORDS[x.replace(/s$/,'')]; });
+  if(word){ em.src=imageForWord(word); em.style.display='block'; }
 }
 function maybeShowPicture(text){
   var tp=S.teachingPlan, s=S.schedule||{current_week:0,current_lesson:0,completed:[]};
@@ -891,17 +944,18 @@ function maybeShowPicture(text){
   for(var i=0;i<words.length;i++){
     var w=words[i].trim().toLowerCase();
     if(!w||w==='—')continue;
-    if(t.indexOf(' '+w+' ')>=0||t.indexOf(w)>=0){ showPicture(w); return; }
+    if(t.indexOf(' '+w+' ')>=0||t.indexOf(w)>=0){ if(boardWords.indexOf(w)<0)drawOnWhiteboard({text:w}); return; }
   }
 }
 
 /* ---- ElevenLabs Convai 語音課堂（Agent.md §8.3） ---- */
-var EL=window.ELEVENLABS_CONFIG||null;
-var voice={conn:null,ctx:null,stream:null,queue:0};
+var voice={conn:null,ctx:null,stream:null,queue:0,pendingText:null,spkTimer:null};
 var PROTOCOL_TEXT="LESSON PROTOCOL (plan first, then execute): 1) output a LessonPlan JSON: mistakes_recap 3 steps (enabled=false if no mistakes), yesterday_recap 2 steps, today_lesson 10 steps, lesson_recap 1 step. 2) execute step by step, never skip segments (except disabled mistakes_recap). Speak short slow encouraging English (max 8 words/sentence). Add a brief Traditional-Chinese/Cantonese hint for the parent only when helpful.";
 function setVoiceStatus(t){ var e=document.getElementById('voiceStatus'); if(e)e.textContent=t; }
 function ensureElConfig(){
-  if(EL&&EL.agentId&&EL.apiKey)return EL;
+  // 即時讀取（elevenlabs_config.js 在主腳本之後載入，不能用開頭快取的 EL）
+  var live=window.ELEVENLABS_CONFIG||null;
+  if(live&&live.agentId&&live.apiKey)return live;
   var saved=null; try{ saved=JSON.parse(localStorage.getItem('sb_el_config')||'null'); }catch(e){}
   if(saved&&saved.agentId&&saved.apiKey)return saved;
   var input=prompt('貼上 ElevenLabs 組態 JSON（可於本地 elevenlabs_config.js 設定，此處僅存於本瀏覽器）：\n{"agentId":"agent_0801m0c2cy4sftabmmjhd9bn02vp","apiKey":"<你的 API key>"}');
@@ -910,13 +964,17 @@ function ensureElConfig(){
   alert('格式錯誤：請貼 {"agentId":"...","apiKey":"..."}');
   return null;
 }
+function setMicLive(on){
+  var b=document.getElementById('btnMic'), b2=document.getElementById('btnVoice');
+  if(b) b.classList.toggle('live',on);
+  if(b2) b2.textContent=on?'⏹ 結束語音課堂':'🎤 開始語音課堂';
+}
 function toggleVoiceLesson(){
-  var btn=document.getElementById('btnVoice');
-  if(voice.conn&&voice.conn.readyState===1){ voice.conn.close(); btn.textContent='🎤 開始語音課堂'; return; }
+  if(voice.conn&&voice.conn.readyState===1){ voice.conn.close(); return; }
   var cfg=ensureElConfig();
-  if(!cfg){ setVoiceStatus('未配置 ElevenLabs'); return; }
-  var prompt=PROTOCOL_TEXT+'\n\nLESSON CONTEXT (JSON):\n'+JSON.stringify(buildAgentContext(),null,2)+'\n\nTeach the child step by step in English.';
-  setVoiceStatus('連接中…'); btn.textContent='⏹ 結束語音課堂';
+  if(!cfg){ voice.pendingText=null; setVoiceStatus('未配置 ElevenLabs'); return; }
+  var prompt=PROTOCOL_TEXT+'\n\nLESSON CONTEXT (JSON):\n'+JSON.stringify(buildAgentContext(),null,2)+'\n\nTeach the child step by step in English. Use the draw_on_whiteboard tool to write every new word on the whiteboard before speaking it.';
+  setVoiceStatus('連接中…'); setMicLive(true);
   openConvai(cfg.agentId, cfg.apiKey, prompt);
 }
 function openConvai(agentId, apiKey, prompt){
@@ -931,6 +989,7 @@ function openConvai(agentId, apiKey, prompt){
     var gotMeta=false;
     ws.onopen=function(){
       ws.send(JSON.stringify({type:'conversation_initiation_client_data',conversation_config_override:{agent:{dynamic_variables:{lesson_context:prompt}}}}));
+      if(voice.pendingText){ var t=voice.pendingText; voice.pendingText=null; try{ ws.send(JSON.stringify({type:'user_message',text:t})); }catch(e){} }
       startMic();
     };
     ws.onmessage=function(ev){
@@ -942,17 +1001,30 @@ function openConvai(agentId, apiKey, prompt){
       var rev=d.agent_response_event||d.agent_response_event_data||null;
       var uev=d.user_transcript_event||d.user_transcript_event_data||null;
       var cev=d.conversation_initiation_metadata_event||d.conversation_initiation_metadata_event_data||null;
-      if(d.type==='audio_event'||d.type==='audio'){ if(chunk)playChunk(chunk); }
+      if(d.type==='audio_event'||d.type==='audio'){
+        if(chunk)playChunk(chunk);
+        var af=document.getElementById('avatarFrame');
+        if(af){ af.classList.add('speaking'); clearTimeout(voice.spkTimer); voice.spkTimer=setTimeout(function(){ af.classList.remove('speaking'); },900); }
+      }
       else if(d.type==='agent_response'){ var t=rev?(rev.agent_response||rev.text||''):''; if(t){ pushChat('StudyBuddy', t); maybeShowPicture(t); } }
       else if(d.type==='user_transcript'){ var u=uev?(uev.user_transcript||uev.text||''):''; if(u)pushChat(S.baby||'寶寶', u); }
       else if(d.type==='conversation_initiation_metadata'){ setVoiceStatus('已連接 · '+((cev&&cev.conversation_id||'').slice(0,8))); }
-      else if(d.type==='ping'){ try{ ws.send(JSON.stringify({type:'ping'})); }catch(e){} }
+      else if(d.type==='client_tool_call'){
+        var te=d.client_tool_call||d.client_tool_call_event||d.client_tool_call_event_data||d;
+        var tc=te.tool_call_id||'';
+        var tn=te.tool_name||'';
+        var tp=te.parameters||{};
+        if(tn==='draw_on_whiteboard'){ drawOnWhiteboard(tp); pushChat('📋 白板', '"'+(tp.text||'')+'"'); }
+        try{ ws.send(JSON.stringify({type:'client_tool_result',tool_call_id:tc,result:'ok',is_error:false})); }catch(e){}
+      }
+      else if(d.type==='ping'){ try{ ws.send(JSON.stringify({type:'pong',event_id:(d.ping_event&&d.ping_event.event_id)||0})); }catch(e){} }
       else if(d.type==='error'){ setVoiceStatus('錯誤：'+JSON.stringify(d.error||d).slice(0,80)); }
     };
     ws.onclose=function(){
       stopMic();
+      setMicLive(false);
       if(!gotMeta&&tries<2){ setVoiceStatus('重連中…'); setTimeout(connect,1200); return; } // 平台偶發 init 失敗：重試一次
-      setVoiceStatus('已斷線'); var b=document.getElementById('btnVoice'); if(b)b.textContent='🎤 開始語音課堂'; voice.conn=null;
+      setVoiceStatus('已斷線'); voice.conn=null;
     };
     ws.onerror=function(){ setVoiceStatus('連接錯誤'); };
   }
@@ -973,7 +1045,7 @@ function startMic(){
       for(var i=0,j=0;i<inData.length;i+=step){ var s=inData[i]; out[j++]=Math.round(Math.max(-1,Math.min(1,s))*32767); }
       var b=new Uint8Array(out.buffer), s2='';
       for(var k=0;k<b.length;k++)s2+=String.fromCharCode(b[k]);
-      voice.conn.send(JSON.stringify({type:'user_audio_chunk',audio_chunk:btoa(s2)}));
+      voice.conn.send(JSON.stringify({type:'user_audio_chunk',user_audio_chunk:btoa(s2)}));
     };
   }).catch(function(err){ setVoiceStatus('麥克風失敗：'+err.message); });
 }
@@ -998,24 +1070,31 @@ function playChunk(b64){
   }catch(e){}
 }
 
-/* ---- Chatbot（依等級動態生成，S.script） ---- */
+/* ---- 課堂對話（bubble 迷你紀錄 + 白板課堂文字輸入） ---- */
 var ci=0;
 function pushChat(who,text){
-  var b=document.getElementById('chatBox');
-  b.innerHTML+='<div class="msg"><div class="who">'+who+'</div><div class="msg '+(who==='StudyBuddy'?'bot':'me')+'">'+text+'</div></div>';
+  var b=document.getElementById('bubbleLog');
+  if(!b)return;
+  var e=document.getElementById('bubbleEmpty');
+  if(e)e.style.display='none';
+  var name=(who==='StudyBuddy')?'🧑‍🏫 StudyBuddy':(who==='📋 白板')?'🖍️ 白板':(S.baby||'👶 寶寶');
+  b.innerHTML+='<div class="mini '+(who==='StudyBuddy'||who==='📋 白板'?'bot':'me')+'"><div class="who">'+name+'</div>'+text+'</div>';
   b.scrollTop=b.scrollHeight;
 }
-function sendChat(){
-  var v=document.getElementById('chatIn').value.trim();
-  if(!v)return;
-  pushChat(S.baby,v); document.getElementById('chatIn').value="";
-  var sc=S.script||[];
-  if(ci<sc.length){
-    setTimeout(function(){ pushChat('StudyBuddy', sc[ci].en+' <span style="color:#6b7686">('+sc[ci].zh+')</span>'); ci++; }, 300);
-  }else{
-    pushChat('StudyBuddy','Wow! 你真棒 🎉 <span style="color:#6b7686">(示範結束)</span>');
+function sendStudentText(){
+  var inp=document.getElementById('chatIn');
+  var t=inp.value.trim(); if(!t)return;
+  if(!voice.conn||voice.conn.readyState!==1){
+    voice.pendingText=t;
+    toggleVoiceLesson();
+    if(!(voice.conn&&voice.conn.readyState===1)){ setVoiceStatus('連接後自動送出…'); }
+    inp.value=''; return;
   }
+  pushChat(S.baby||'👶 寶寶', t);
+  try{ voice.conn.send(JSON.stringify({type:'user_message',text:t})); }catch(e){}
+  inp.value='';
 }
+function sendChat(){ sendStudentText(); }
 </script>
 
 <!-- 本地 ElevenLabs 組態（gitignored；不存在時語音課堂提示設定） -->

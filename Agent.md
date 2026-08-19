@@ -185,6 +185,8 @@ StudyBuddy 編排以下子 agent（提示詞定義見 `prompts.py`）。各子 a
 | 英語對話（數字人）    | `SYS_ENGLISH` | 依 §8.3 課程執行協定先規劃 LessonPlan 再逐步執行（4 段 × 16 步）；休閒對話 4–6 輪 | `JSON_ENGLISH` / `LessonPlan` | **ElevenLabs Agent**（生成＋語音一體） |
 
 > 語音耦合：Spell 拼讀 aloud 由 ElevenLabs Agent 語音辨識接收並口語回饋；點選字母磚則走文字通道。若 agent 在 `JSON_COURSE` / `JSON_AVATAR` 出現格式錯誤，由 `prompts.py` 的 JSON 解析層重試或降規則庫兜底（見 §13）。
+>
+> **白板課堂工具（draw_on_whiteboard，client tool）**：前端「白板課堂」tab 以白板（`asserts/whiteboard.png`，Zen Maru Gothic 字體）取代傳統聊天框，右側為導師頭像＋對話氣泡，底部為文字輸入＋最右麥克風。Agent 在教每個新單字／句子前**必須**先呼叫 client tool `draw_on_whiteboard`（參數：`text` 必填、`clear`、`color`、`font_size`），前端在白板上疊加文字並回傳 `client_tool_result`；已知單字（banana、cat…）同時顯示 Twemoji 透明卡通圖。文字輸入走 WS `user_message`，麥克風走 `user_audio_chunk`（PCM16 @16kHz）。
 
 ### 8.2 調度約束
 
