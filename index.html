@@ -83,7 +83,7 @@
   <section id="view-login">
     <div class="card">
       <h2>家長登入</h2>
-      <p class="sub" id="loginSub">使用本地帳號（localStorage）登入；首次使用可即時註冊。</p>
+      <p class="sub" id="loginSub">使用本地帳號（localStorage）登入；首次使用可即時註冊。問卷答案會以本地 SQLite 按帳號保存，下次登入自動載入。</p>
       <label>用戶名</label>
       <input type="text" id="inUser" placeholder="例如：chentai" autocomplete="username" />
       <label>密碼</label>
@@ -323,6 +323,9 @@
         <h2>設定</h2>
         <p class="sub">目前寶寶的等級總覽（依問卷作答自動評級）。</p>
         <div class="kv" id="settingsKV"></div>
+        <div class="row">
+          <button class="ghost" onclick="go('questionnaire')">✏️ 重新填寫問卷</button>
+        </div>
         <div class="note">英語等級由 EA/EB 作答計算；Doman 階段由六通路觀察計算；城市線級會校正環境等級（effective_env）。</div>
       </div>
     </div>
@@ -379,7 +382,7 @@ function go(v){
     document.getElementById('view-'+x).classList.toggle('hidden', x!==v);
   });
   var lo=document.getElementById('btnLogout'); if(lo) lo.style.display=(v==='dash')?'inline-block':'none';
-  if(v==='questionnaire') renderAge();
+  if(v==='questionnaire'){ renderAge(); applyAnswersFromDb(); }
   if(v==='dash') document.getElementById('hdrWho').textContent =
     (S.baby||'寶寶')+' · '+(S.parent||'家長');
 }
@@ -715,6 +718,7 @@ function submitAssessment(){
   S.level=lvl; S.goal=S.goal||"溝通自信";
   renderPlan(); renderMistakes(); renderSched();
   go('dash'); tab('plan');
+  saveAnswers(); saveSnapshot(); // 立即持久化問卷答案與評估快照（SQLite）
 }
 
 /* ---- 渲染 ---- */
@@ -802,6 +806,93 @@ function sendChat(){
 }
 </script>
 
+<!-- ============ 本地 SQLite（sql.js）：每帳號獨立保存問卷答案與評估快照 ============ -->
+<script src="https://sql.js.org/dist/sql-wasm.js"></script>
+<script>
+var SQL=null, DB=null;
+function uint8ToBase64(u8){var s='';for(var i=0;i<u8.length;i++)s+=String.fromCharCode(u8[i]);return btoa(s);}
+function base64ToUint8(b64){var s=atob(b64),u=new Uint8Array(s.length);for(var i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u;}
+function initSql(){ return new Promise(function(res,rej){
+  if(SQL)return res(SQL);
+  if(typeof initSqlJs==='undefined')return rej(new Error('sql.js CDN 載入失敗'));
+  initSqlJs({locateFile:function(f){return 'https://sql.js.org/dist/'+f;}}).then(function(s){SQL=s;res(SQL);}).catch(rej);
+});}
+function loadDb(user){
+  var b64=localStorage.getItem('sb_db_'+user);
+  var db = b64 ? new SQL.Database(base64ToUint8(b64)) : new SQL.Database();
+  db.run("CREATE TABLE IF NOT EXISTS answers(q_key TEXT PRIMARY KEY,q_value TEXT,updated_at TEXT DEFAULT (datetime('now')));");
+  db.run("CREATE TABLE IF NOT EXISTS assessment(id INTEGER PRIMARY KEY CHECK(id=1),snapshot TEXT,updated_at TEXT DEFAULT (datetime('now')));");
+  return db;
+}
+function saveDb(){ if(!DB||!S.user)return; localStorage.setItem('sb_db_'+S.user, uint8ToBase64(DB.export())); }
+var INPUT_IDS=['inParent','inBaby','inBirth','inNote','inWeeks'];
+var SELECT_IDS=['E1','E3','E4','E5','EA1','EA2','EA3','EA4','EA5','EB1','EB2','EB3','EB4','EB5','EB6','EB7'];
+var CHIP_KEYS=['gender','fullterm','carer','lang','tier','edu','income','engAdult','doman','E2','E6','goal','freq','screen','g4'];
+function collectAnswers(){
+  var pairs=[];
+  INPUT_IDS.forEach(function(id){var e=document.getElementById(id);if(e)pairs.push([id,e.value]);});
+  SELECT_IDS.forEach(function(id){var e=document.getElementById(id);if(e)pairs.push([id,e.value]);});
+  CHIP_KEYS.forEach(function(k){if(S[k]!==undefined)pairs.push([k,typeof S[k]==='object'?JSON.stringify(S[k]):String(S[k])]);});
+  (window.PATHWAYS||[]).forEach(function(p){p.questions.forEach(function(q){if(S[q[0]]!==undefined)pairs.push([q[0],String(S[q[0]])]);});});
+  return pairs;
+}
+function saveAnswers(){
+  if(!DB||!S.user)return;
+  var stmt=DB.prepare("INSERT OR REPLACE INTO answers(q_key,q_value,updated_at) VALUES(?,?,datetime('now'))");
+  collectAnswers().forEach(function(p){stmt.run([p[0],p[1]]);});
+  stmt.free(); saveDb();
+}
+function saveSnapshot(){
+  if(!DB||!S.user||!S.plan)return;
+  var snap=JSON.stringify({plan:S.plan,phys:S.phys,level:S.level,mistakes:S.mistakes,progress:S.progress,script:S.script,months:S.months,tier:S.tier,freq:S.freq,screen:S.screen});
+  DB.run("INSERT OR REPLACE INTO assessment(id,snapshot,updated_at) VALUES(1,?,datetime('now'))",[snap]);
+  saveDb();
+}
+function loadSnapshot(){
+  if(!DB)return null;
+  var res=DB.exec("SELECT snapshot FROM assessment WHERE id=1");
+  if(res.length&&res[0].values.length){try{return JSON.parse(res[0].values[0][0]);}catch(e){}}
+  return null;
+}
+function applyAnswersFromDb(){
+  if(!DB)return;
+  var res=DB.exec("SELECT q_key,q_value FROM answers");
+  if(!res.length)return;
+  res[0].values.forEach(function(r){var k=r[0],v=r[1];
+    if(SELECT_IDS.indexOf(k)>=0){var e=document.getElementById(k);if(e)e.value=v;return;}
+    if(INPUT_IDS.indexOf(k)>=0)return;
+    try{S[k]= v[0]==='['||v[0]==='{'?JSON.parse(v):v;}catch(e){S[k]=v;}
+  });
+  document.querySelectorAll('.opt').forEach(function(o){
+    var v=S[o.dataset.name]; if(v===undefined||v===null)return;
+    if(o.dataset.multi){(v||[]).forEach(function(x){o.querySelectorAll('.chip').forEach(function(c){if(c.dataset.v===x)c.classList.add('on');});});}
+    else{o.querySelectorAll('.chip').forEach(function(c){if(c.dataset.v===v)c.classList.add('on');});}
+  });
+  var w=document.getElementById('inWeeks'); if(w)w.style.display=(S.fullterm==='否')?'block':'none';
+}
+function loadAnswers(){
+  if(!DB)return;
+  var res=DB.exec("SELECT q_key,q_value FROM answers");
+  if(!res.length)return;
+  res[0].values.forEach(function(r){var k=r[0],v=r[1];
+    if(INPUT_IDS.indexOf(k)>=0){var e=document.getElementById(k);if(e)e.value=v;return;}
+  });
+  if(S.inBirth)renderAge();
+  applyAnswersFromDb();
+}
+function saveAll(){ saveAnswers(); saveSnapshot(); }
+function afterLogin(user){
+  S.user=user;
+  return initSql().then(function(){
+    DB=loadDb(user);
+    loadAnswers();
+    var snap=loadSnapshot();
+    if(snap){Object.assign(S,snap);renderPlan();renderMistakes();renderSched();go('dash');tab('plan');}
+    else{go('questionnaire');}
+  }).catch(function(err){ go('questionnaire'); return Promise.reject(err); }); // CDN 失敗時退回無 DB 模式
+}
+</script>
+
 <!-- ============ 登入（純前端 localStorage 示範，無後端） ============ -->
 <script>
 (function(){
@@ -818,7 +909,7 @@ function sendChat(){
   link.addEventListener("click", function(){ setMode(mode==="signup"?"signin":"signup"); setMsg(""); });
 
   function proceed(){
-    window.go("questionnaire");
+    window.afterLogin(window.S.user);
   }
   function login(){
     var u = document.getElementById("inUser").value.trim();
@@ -835,6 +926,7 @@ function sendChat(){
         if(!db[u] || db[u] !== p){ setMsg("用戶名或密碼錯誤", true); return; }
       }
       window.S.uid = "local:" + u;
+      window.S.user = u;
       setMsg("登入成功");
       proceed();
     }catch(e){ setMsg("本地登入失敗：" + e.message, true); }
@@ -844,6 +936,7 @@ function sendChat(){
   var out = document.getElementById("btnLogout");
   if(out){
     out.addEventListener("click", function(){
+      try{ window.saveAll(); }catch(e){}
       window.S = {}; window.go("login");
     });
   }
