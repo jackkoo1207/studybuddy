@@ -1,1 +1,2 @@
-# StudyBuddy uses Python stdlib only (http.server) — no packages to install.
+# StudyBuddy dependencies — only pg8000 (pure-Python Postgres driver); everything else is stdlib.
+pg8000>=1.30

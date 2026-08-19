@@ -122,7 +122,7 @@
   <section id="view-login">
     <div class="card">
       <h2>家長登入</h2>
-      <p class="sub" id="loginSub">使用本地帳號（localStorage）登入；首次使用可即時註冊。問卷答案以本地 SQLite 按帳號保存 — 已填過的帳號下次登入直接進入主頁，可於「設定」重填問卷。</p>
+      <p class="sub" id="loginSub">多用戶帳號（伺服器端 PostgreSQL 保存）：首次使用可即時註冊；問卷答案、評估與教學計畫按帳號存於雲端，換裝置／清瀏覽器資料都不會遺失。已填過的帳號下次登入直接進入主頁，可於「設定」重填問卷。</p>
       <label>用戶名</label>
       <input type="text" id="inUser" placeholder="例如：chentai" autocomplete="username" />
       <label>密碼</label>
@@ -433,7 +433,7 @@ function go(v){
     document.getElementById('view-'+x).classList.toggle('hidden', x!==v);
   });
   var lo=document.getElementById('btnLogout'); if(lo) lo.style.display=(v==='dash')?'inline-block':'none';
-  if(v==='questionnaire'){ renderAge(); applyAnswersFromDb(); }
+  if(v==='questionnaire'){ renderAge(); applyAnswers(S); }
   if(v==='dash') document.getElementById('hdrWho').textContent =
     (S.baby||'寶寶')+' · '+(S.parent||'家長');
 }
@@ -754,7 +754,7 @@ function submitAssessment(){
   generateTeachingPlan(); // 教學計畫：首次註冊生成一次；重填問卷視為重新生成
   renderPlan(); renderMistakes(); renderSched();
   go('dash'); tab('plan');
-  saveAnswers(); saveSnapshot(); savePlan(); // 立即持久化（SQLite）
+  saveAnswers(); saveSnapshot(); savePlan(); // 立即持久化（PostgreSQL）
 }
 
 /* ---- 渲染 ---- */
@@ -1095,26 +1095,25 @@ function sendChat(){ sendStudentText(); }
 
 <!-- 本地 ElevenLabs 組態（gitignored；不存在時語音課堂提示設定） -->
 <script src="elevenlabs_config.js"></script>
-<!-- ============ 本地 SQLite（sql.js）：每帳號獨立保存問卷答案與評估快照 ============ -->
-<script src="https://sql.js.org/dist/sql-wasm.js"></script>
+<!-- ============ 帳號與資料（多用戶，PostgreSQL 伺服器端保存；token 存 localStorage） ============ -->
 <script>
-var SQL=null, DB=null;
-function uint8ToBase64(u8){var s='';for(var i=0;i<u8.length;i++)s+=String.fromCharCode(u8[i]);return btoa(s);}
-function base64ToUint8(b64){var s=atob(b64),u=new Uint8Array(s.length);for(var i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u;}
-function initSql(){ return new Promise(function(res,rej){
-  if(SQL)return res(SQL);
-  if(typeof initSqlJs==='undefined')return rej(new Error('sql.js CDN 載入失敗'));
-  initSqlJs({locateFile:function(f){return 'https://sql.js.org/dist/'+f;}}).then(function(s){SQL=s;res(SQL);}).catch(rej);
-});}
-function loadDb(user){
-  var b64=localStorage.getItem('sb_db_'+user);
-  var db = b64 ? new SQL.Database(base64ToUint8(b64)) : new SQL.Database();
-  db.run("CREATE TABLE IF NOT EXISTS answers(q_key TEXT PRIMARY KEY,q_value TEXT,updated_at TEXT DEFAULT (datetime('now')));");
-  db.run("CREATE TABLE IF NOT EXISTS assessment(id INTEGER PRIMARY KEY CHECK(id=1),snapshot TEXT,updated_at TEXT DEFAULT (datetime('now')));");
-  db.run("CREATE TABLE IF NOT EXISTS plan(id INTEGER PRIMARY KEY CHECK(id=1),plan_json TEXT,schedule_json TEXT,updated_at TEXT DEFAULT (datetime('now')));");
-  return db;
+/* ---- 多用戶 API（PostgreSQL 伺服器端；token 存 localStorage，可跨裝置同步） ---- */
+var API={token:null,user:null};
+try{ API.token=localStorage.getItem('sb_token')||null; API.user=localStorage.getItem('sb_user')||null; }catch(e){}
+function apiFetch(method,path,body){
+  var opt={method:method,headers:{'Content-Type':'application/json'}};
+  if(API.token)opt.headers['Authorization']='Bearer '+API.token;
+  if(body!==undefined)opt.body=JSON.stringify(body);
+  return fetch(path,opt).then(function(r){ return r.json().then(function(j){ return {ok:r.ok,status:r.status,j:j}; }); });
 }
-function saveDb(){ if(!DB||!S.user)return; localStorage.setItem('sb_db_'+S.user, uint8ToBase64(DB.export())); }
+function apiRegister(u,p){ return apiFetch('POST','/api/register',{username:u,password:p}); }
+function apiLogin(u,p){ return apiFetch('POST','/api/login',{username:u,password:p}); }
+function apiLogout(){ return apiFetch('POST','/api/logout'); }
+function apiState(){ return apiFetch('GET','/api/state'); }
+function apiSaveAnswers(a){ return apiFetch('PUT','/api/answers',{answers:a}); }
+function apiSaveSnapshot(s){ return apiFetch('PUT','/api/snapshot',{snapshot:s}); }
+function apiSavePlan(p,s){ return apiFetch('PUT','/api/plan',{plan:p,schedule:s}); }
+
 var INPUT_IDS=['inParent','inBaby','inBirth','inNote','inWeeks'];
 var SELECT_IDS=['E1','E3','E4','E5','EA1','EA2','EA3','EA4','EA5','EB1','EB2','EB3','EB4','EB5','EB6','EB7'];
 var CHIP_KEYS=['gender','fullterm','carer','lang','tier','edu','income','engAdult','doman','E2','E6','goal','freq','screen','g4'];
@@ -1126,32 +1125,27 @@ function collectAnswers(){
   (window.PATHWAYS||[]).forEach(function(p){p.questions.forEach(function(q){if(S[q[0]]!==undefined)pairs.push([q[0],String(S[q[0]])]);});});
   return pairs;
 }
-function saveAnswers(){
-  if(!DB||!S.user)return;
-  var stmt=DB.prepare("INSERT OR REPLACE INTO answers(q_key,q_value,updated_at) VALUES(?,?,datetime('now'))");
-  collectAnswers().forEach(function(p){stmt.run([p[0],p[1]]);});
-  stmt.free(); saveDb();
-}
+function answersObject(){ var o={}; collectAnswers().forEach(function(p){ o[p[0]]=p[1]; }); return o; }
+function saveAnswers(){ if(!S.user)return; apiSaveAnswers(answersObject()).catch(function(){}); }
 function saveSnapshot(){
-  if(!DB||!S.user||!S.plan)return;
+  if(!S.user||!S.plan)return;
   var snap=JSON.stringify({plan:S.plan,phys:S.phys,level:S.level,mistakes:S.mistakes,progress:S.progress,script:S.script,months:S.months,tier:S.tier,freq:S.freq,screen:S.screen});
-  DB.run("INSERT OR REPLACE INTO assessment(id,snapshot,updated_at) VALUES(1,?,datetime('now'))",[snap]);
-  saveDb();
+  apiSaveSnapshot(JSON.parse(snap)).catch(function(){});
 }
-function loadSnapshot(){
-  if(!DB)return null;
-  var res=DB.exec("SELECT snapshot FROM assessment WHERE id=1");
-  if(res.length&&res[0].values.length){try{return JSON.parse(res[0].values[0][0]);}catch(e){}}
-  return null;
+function savePlan(){
+  if(!S.user||!S.teachingPlan)return;
+  var sched=S.schedule||{current_week:0,current_lesson:0,completed:[]};
+  apiSavePlan(S.teachingPlan,sched).catch(function(){});
 }
-function applyAnswersFromDb(){
-  if(!DB)return;
-  var res=DB.exec("SELECT q_key,q_value FROM answers");
-  if(!res.length)return;
-  res[0].values.forEach(function(r){var k=r[0],v=r[1];
+function saveAll(){ saveAnswers(); saveSnapshot(); savePlan(); }
+
+/* ---- 載入：伺服器端 state → S（與 SQLite 版同邏輯，只是資料來源換成 API） ---- */
+function applyAnswers(ans){
+  if(!ans)return;
+  Object.keys(ans).forEach(function(k){var v=ans[k];
     if(SELECT_IDS.indexOf(k)>=0){var e=document.getElementById(k);if(e)e.value=v;return;}
     if(INPUT_IDS.indexOf(k)>=0)return;
-    try{S[k]= v[0]==='['||v[0]==='{'?JSON.parse(v):v;}catch(e){S[k]=v;}
+    try{S[k]= (v&&(v[0]==='['||v[0]==='{'))?JSON.parse(v):v;}catch(e){S[k]=v;}
   });
   document.querySelectorAll('.opt').forEach(function(o){
     var v=S[o.dataset.name]; if(v===undefined||v===null)return;
@@ -1160,59 +1154,47 @@ function applyAnswersFromDb(){
   });
   var w=document.getElementById('inWeeks'); if(w)w.style.display=(S.fullterm==='否')?'block':'none';
 }
-function loadAnswers(){
-  if(!DB)return;
-  var res=DB.exec("SELECT q_key,q_value FROM answers");
-  if(!res.length)return;
-  res[0].values.forEach(function(r){var k=r[0],v=r[1];
+function loadAnswers(ans){
+  if(!ans)return;
+  Object.keys(ans).forEach(function(k){var v=ans[k];
     if(INPUT_IDS.indexOf(k)>=0){var e=document.getElementById(k);if(e)e.value=v;return;}
   });
   var b=document.getElementById('inBirth');
   if(b&&b.value) renderAge(); // 依出生日期重建 EA/EB 與六通路題目（renderAge 會設 S.months）
-  applyAnswersFromDb();
+  applyAnswers(ans);
 }
-function savePlan(){
-  if(!DB||!S.user||!S.teachingPlan)return;
-  var sched=S.schedule||{current_week:0,current_lesson:0,completed:[]};
-  DB.run("INSERT OR REPLACE INTO plan(id,plan_json,schedule_json,updated_at) VALUES(1,?,?,datetime('now'))",[JSON.stringify(S.teachingPlan),JSON.stringify(sched)]);
-  saveDb();
+function loadPlan(p){
+  if(!p||!p.plan)return null;
+  var plan=p.plan;
+  if(plan.weeks) plan.weeks.forEach(function(w){ if(w.focus) w.focus=w.focus.replace(/^第\s*\d+\s*週：/,''); }); // 遷移舊格式：移除內嵌「第 N 週：」前綴
+  return {plan:plan,schedule:p.schedule||{current_week:0,current_lesson:0,completed:[]}};
 }
-function loadPlan(){
-  if(!DB)return null;
-  var res=DB.exec("SELECT plan_json,schedule_json FROM plan WHERE id=1");
-  if(res.length&&res[0].values.length){try{
-    var p=JSON.parse(res[0].values[0][0]);
-    if(p&&p.weeks) p.weeks.forEach(function(w){ if(w.focus) w.focus=w.focus.replace(/^第\s*\d+\s*週：/,''); }); // 遷移舊格式：移除內嵌「第 N 週：」前綴
-    return {plan:p,schedule:JSON.parse(res[0].values[0][1]||'{}')};
-  }catch(e){}}
-  return null;
-}
-function saveAll(){ saveAnswers(); saveSnapshot(); savePlan(); }
 function afterLogin(user){
   S.user=user;
-  return initSql().then(function(){
-    DB=loadDb(user);
-    var hasAnswers = DB.exec("SELECT COUNT(*) FROM answers")[0].values[0][0] > 0;
-    if(hasAnswers){
-      loadAnswers();                       // 已填過：載入答案
+  return apiState().then(function(res){
+    if(!res.ok){ go('login'); if(res.status===401){ API.token=null; try{localStorage.removeItem('sb_token');}catch(e){} } return; }
+    var st=res.j||{};
+    var ans=st.answers||{};
+    if(Object.keys(ans).length){
+      loadAnswers(ans);                       // 已填過：載入答案
       if(!computeAssessment()){ go('questionnaire'); return; } // 答案不完整（缺出生日期）
-      var saved=loadPlan();
+      var saved=loadPlan(st.plan);
       if(saved){
-        S.teachingPlan=saved.plan;         // 計畫只生成一次：登入直接沿用
+        S.teachingPlan=saved.plan;            // 計畫只生成一次：登入直接沿用
         S.schedule=saved.schedule||{current_week:0,current_lesson:0,completed:[]};
       }else{
-        generateTeachingPlan(); savePlan(); // 舊帳號無計畫 → 首次生成
+        generateTeachingPlan(); savePlan();   // 舊帳號無計畫 → 首次生成
       }
       renderPlan(); renderMistakes(); renderSched();
       go('dash'); tab('plan');
       return;
     }
-    go('questionnaire');             // 新帳號：填問卷
-  }).catch(function(err){ go('questionnaire'); return Promise.reject(err); }); // CDN 失敗時退回無 DB 模式
+    go('questionnaire');                      // 新帳號：填問卷
+  }).catch(function(err){ go('login'); });    // 伺服器連不上 → 回登入
 }
 </script>
 
-<!-- ============ 登入（純前端 localStorage 示範，無後端） ============ -->
+<!-- ============ 登入（多用戶，伺服器端 PostgreSQL；token 存 localStorage） ============ -->
 <script>
 (function(){
   var mode = "signin";
@@ -1227,28 +1209,22 @@ function afterLogin(user){
   }
   link.addEventListener("click", function(){ setMode(mode==="signup"?"signin":"signup"); setMsg(""); });
 
-  function proceed(){
-    window.afterLogin(window.S.user);
-  }
   function login(){
     var u = document.getElementById("inUser").value.trim();
     var p = document.getElementById("inPw").value;
     if(!u){ setMsg("請填寫用戶名", true); return; }
     if(p.length < 6){ setMsg("密碼至少 6 位", true); return; }
     setMsg("處理中…");
-    try{
-      var db = JSON.parse(localStorage.getItem("sb_users") || "{}");
-      if(mode==="signup"){
-        if(db[u]){ setMsg("此用戶名已存在，請登入", true); return; }
-        db[u] = p; localStorage.setItem("sb_users", JSON.stringify(db));
-      } else {
-        if(!db[u] || db[u] !== p){ setMsg("用戶名或密碼錯誤", true); return; }
-      }
-      window.S.uid = "local:" + u;
-      window.S.user = u;
+    var req = (mode==="signup") ? apiRegister(u,p) : apiLogin(u,p);
+    req.then(function(res){
+      if(!res.ok){ setMsg((res.j&&res.j.error)||"失敗", true); return; }
+      API.token = res.j.token; API.user = u;
+      try{ localStorage.setItem("sb_token", res.j.token); localStorage.setItem("sb_user", u); }catch(e){}
+      S.uid = "api:" + u;
+      S.user = u;
       setMsg("登入成功");
-      proceed();
-    }catch(e){ setMsg("本地登入失敗：" + e.message, true); }
+      afterLogin(u);
+    }).catch(function(){ setMsg("無法連接伺服器（請確認已透過 Railway／serve.py 啟動）", true); });
   }
   btn.addEventListener("click", login);
 
@@ -1256,6 +1232,9 @@ function afterLogin(user){
   if(out){
     out.addEventListener("click", function(){
       try{ window.saveAll(); }catch(e){}
+      apiLogout().catch(function(){});
+      API.token = null;
+      try{ localStorage.removeItem("sb_token"); localStorage.removeItem("sb_user"); }catch(e){}
       window.S = {}; window.go("login");
     });
   }
