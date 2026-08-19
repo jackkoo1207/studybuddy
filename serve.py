@@ -126,12 +126,13 @@ def new_session(cur, user_id):
     cur.execute('INSERT INTO sessions(token,user_id) VALUES(%s,%s)', (token, user_id))
     return token
 
-def user_by_token(cur, token):
+def user_by_token(c, token):
     if not token:
         return None
-    cur.execute('SELECT user_id FROM sessions WHERE token=%s', (token,))
-    row = cur.fetchone()
-    return row[0] if row else None
+    with _cur(c) as cur:
+        cur.execute('SELECT user_id FROM sessions WHERE token=%s', (token,))
+        row = cur.fetchone()
+        return row[0] if row else None
 
 # ---------- HTTP ----------
 class Handler(http.server.SimpleHTTPRequestHandler):
