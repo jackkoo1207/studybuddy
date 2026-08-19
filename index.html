@@ -279,16 +279,13 @@
       <!-- TAB: PLAN -->
       <div id="tab-plan">
         <h2 id="planTitle">教學計畫</h2>
-        <p class="sub">由 AvatarPlan（規則兜底）＋ 教學三支柱（Hear / Read / Spell）生成。</p>
-        <h3>AvatarPlan</h3>
-        <div class="kv" id="avatarKV"></div>
-        <h3>發展評估（六通路）</h3>
-        <div class="kv" id="physKV"></div>
-        <h3>本週課程（聚焦概念性錯誤 · 三支柱）</h3>
-        <div id="lessonActs"></div>
+        <p class="sub" id="planSub"></p>
+        <h3>今日焦點</h3>
+        <div class="card" id="todayCard" style="background:#fff8f1;border-color:#f5d9b8"></div>
+        <h3>四週教學計畫</h3>
+        <div id="weekPlan"></div>
         <h3>進度記憶</h3>
         <div class="kv" id="progressKV"></div>
-        <div class="note" id="routingNote"></div>
       </div>
 
       <!-- TAB: CHAT -->
@@ -501,27 +498,7 @@ function computeDosage(level,freqKey,screenKey,tierKey){
   return {session_min:session,frequency_per_week:freq,weekly_min:session*freq,mode:mode};
 }
 
-/* ---- 課程模板（三支柱） ---- */
-function lessonActivities(level,goal){
-  var T={
-    L0:[["Hear","聲音暴露：每天播放英文兒歌 5 分鐘，觀察寶寶是否轉頭/安靜"],
-        ["Hear","親子節奏律動：拍手唱 Clap your hands"],
-        ["Read","共讀準備：拿對比鮮明圖卡在眼前 20–30cm 緩慢移動"]],
-    L1:[["Hear","TPR 指令：Touch your nose 邊說邊做"],
-        ["Read","實物命名：拿起球說 ball，讓寶寶指認"],
-        ["Spell","說出字母音：展示 A 磚說 /æ/，鼓勵跟說"]],
-    L2:[["Hear","兒歌跟唱：Twinkle Twinkle 跟唱"],
-        ["Read","圖卡配對：cat/dog 圖卡配對遊戲"],
-        ["Spell","拼給 agent：說出 C-A-T 三個字母音，agent 核對回饋"]],
-    L3:[["Hear","數字人簡單問答：What is this? → 寶寶答"],
-        ["Read","主題詞彙：動物主題詞卡指讀"],
-        ["Spell","Phonics 遊戲：b-b-ball / c-c-cat 首音覺察拼讀"]],
-    L4:[["Hear","角色扮演：At the park 對話"],
-        ["Read","故事複述：看圖說出簡單故事"],
-        ["Spell","基礎拼字：拼出 cat/dog，agent 接收並示範正確拼讀"]]
-  };
-  return (T[level]||T.L2).map(function(a){ return {pillar:a[0],text:a[1]}; });
-}
+/* ---- 教學計畫由 generateTeachingPlan() 依等級/薄弱項生成（見渲染區） ---- */
 var MISTAKES=[]; // 課堂記錄：尚未上課前保持空白（概念性錯誤需在練習中觀察累積）
 
 /* ---- 由問卷答案動態生成的內容（不再硬編碼示範資料） ---- */
@@ -685,10 +662,10 @@ function physAssessment(){
 }
 
 /* ---- 提交評估 ---- */
-function submitAssessment(){
+function computeAssessment(){
   S.parent=document.getElementById('inParent').value||"家長";
   S.baby=document.getElementById('inBaby').value||"寶寶";
-  if(!S.months){alert("請先填寫寶寶出生日期");return;}
+  if(!S.months)return false;
   var env=envLevel(), lvl=englishLevel(), per=inferPersonality(), tier=S.tier||"香港";
   S.phys=physAssessment();
   S.mistakes=buildMistakes(lvl,S.phys);
@@ -716,51 +693,126 @@ function submitAssessment(){
     parent_tip:"寶寶是"+ARCH_ZH[per.primary]+"，建議依其性格調整互動節奏。"
   };
   S.level=lvl; S.goal=S.goal||"溝通自信";
+  return true;
+}
+function submitAssessment(){
+  if(!computeAssessment()){ alert("請先填寫寶寶出生日期"); return; }
+  generateTeachingPlan(); // 教學計畫：首次註冊生成一次；重填問卷視為重新生成
   renderPlan(); renderMistakes(); renderSched();
   go('dash'); tab('plan');
-  saveAnswers(); saveSnapshot(); // 立即持久化問卷答案與評估快照（SQLite）
+  saveAnswers(); saveSnapshot(); savePlan(); // 立即持久化（SQLite）
 }
 
 /* ---- 渲染 ---- */
+/* ---- 教學計畫：首次註冊生成一次，存入 SQLite，登入不重算 ---- */
+function generateTeachingPlan(){
+  var lvl=S.level, dos=S.plan.dosage, weak=(S.phys&&S.phys.weak)||[];
+  var freq=Math.max(2,Math.min(6,dos.frequency_per_week)), mins=dos.session_min;
+  var themes={
+    L0:["聲音暴露與律動","兒歌與節奏","親子互動聽力","綜合複習＋升級預覽"],
+    L1:["實物命名與聽力","TPR 指令","簡單繪本共讀","綜合複習＋升級預覽"],
+    L2:["兒歌跟唱","圖卡配對","簡單問答","綜合複習＋升級預覽"],
+    L3:["主題詞彙","What is this 問答","Phonics 首音","綜合複習＋升級預覽"],
+    L4:["角色扮演對話","故事複述","拼讀輸出","綜合複習＋升級預覽"]
+  };
+  var pools={
+    L0:[["Hear","聲音暴露：播放英文兒歌","每天播放 3 首英文兒歌，觀察是否轉頭/安靜",["la-la-la"]],
+        ["Hear","親子律動：Clap your hands","邊唱邊拍手，讓寶寶模仿動作",["clap","hands"]],
+        ["Read","圖卡凝視訓練","對比鮮明圖卡在眼前 20–30cm 緩慢移動",["—"]]],
+    L1:[["Hear","TPR 指令：Touch your nose","邊說邊做，引導寶寶模仿",["nose","touch"]],
+        ["Read","實物命名：ball","拿起球說 ball，讓寶寶指認",["ball","dog"]],
+        ["Spell","字母音：A（/æ/）","展示 A 磚說 /æ/，鼓勵跟說",["A"]]],
+    L2:[["Hear","兒歌跟唱：Twinkle Twinkle","跟唱並做動作",["twinkle","star"]],
+        ["Read","圖卡配對：cat / dog","圖卡配對遊戲",["cat","dog"]],
+        ["Spell","拼給 agent：C-A-T","說出三個字母音，agent 核對回饋",["c-a-t"]]],
+    L3:[["Hear","What is this 問答","數字人問、寶寶答",["what","this"]],
+        ["Read","主題詞彙：動物","動物主題詞卡指讀",["dog","cat","bird"]],
+        ["Spell","Phonics：b-b-ball","首音覺察拼讀",["ball","pig"]]],
+    L4:[["Hear","角色扮演：At the park","與數字人扮演公園情境對話",["park","run"]],
+        ["Read","故事複述","看圖說出簡單故事",["story"]],
+        ["Spell","拼字：cat / dog","拼出單字，agent 示範正確拼讀",["cat","dog"]]]
+  };
+  var pool=pools[lvl]||pools.L2, t=themes[lvl]||themes.L2, weeks=[];
+  for(var w=1;w<=4;w++){
+    var lessons=[];
+    for(var i=0;i<freq;i++){
+      var src=pool[(w+i)%pool.length];
+      lessons.push({day:"Day "+(i+1),pillar:src[0],activity:src[1],how:src[2]+"（每次 "+mins+" 分）",words:src[3].join("、"),goal:"強化 "+src[0]+" 支柱"});
+    }
+    weeks.push({week:w,focus:"第 "+w+" 週："+t[w-1],lessons:lessons});
+  }
+  if(weak.length){
+    var wm={視覺:"Read",聽覺:"Hear",觸覺:"Hear",活動能力:"Hear",語言:"Hear+Spell",手部靈活度:"Read"};
+    weeks[0].focus="第 1 週："+t[0]+"（針對薄弱項："+weak.join("、")+"）";
+    weeks[0].lessons[0]={day:"Day 1",pillar:wm[weak[0]]||"Hear",activity:"強化訓練："+weak[0]+"小遊戲",how:"依薄弱項安排親子小遊戲（每次 "+mins+" 分）",words:"—",goal:"補強薄弱項："+weak[0]};
+  }
+  S.teachingPlan={generated_at:new Date().toISOString().slice(0,10),level:lvl,weeks:weeks};
+  S.schedule={current_week:0,current_lesson:0,completed:[]};
+}
 function renderPlan(){
-  var p=S.plan, lvl=S.level;
-  document.getElementById('planTitle').textContent=S.baby+' 的教學計畫（L'+lvl.slice(1)+' · '+LEVEL_NAME[lvl]+'）';
-  var kv=document.getElementById('avatarKV');
-  kv.innerHTML=
-    '<b>英語等級</b><div>'+lvl+' · '+LEVEL_NAME[lvl]+'</div>'+
-    '<b>環境×基礎</b><div>'+p.segment.matrix_cell+'（env '+p.segment.env_level+' → 校正 '+p.segment.effective_env+'）</div>'+
-    '<b>性格原型</b><div>'+ARCH_ZH[p.personality.primary]+'（'+p.personality.primary+'） · 置信 '+p.personality.confidence+'</div>'+
-    '<b>數字人人格</b><div>'+p.avatar_persona+'</div>'+
-    '<b>分量</b><div>每次 '+p.dosage.session_min+' 分 × '+p.dosage.frequency_per_week+' 次/週 ＝ '+p.dosage.weekly_min+' 分；模式 '+p.dosage.mode+'</div>'+
-    '<b>安全</b><div>'+p.safety.notes.join('；')+'</div>'+
-    '<b>家長提示</b><div>'+p.parent_tip+'</div>';
-  var acts=lessonActivities(lvl,S.goal);
-  document.getElementById('lessonActs').innerHTML=acts.map(function(a){
-    return '<div class="act"><span class="dot '+a.pillar.toLowerCase()+'"></span>'
-      +'<div><span class="pill '+a.pillar.toLowerCase()+'">'+a.pillar+'</span> '+a.text+'</div></div>';
-  }).join('');
+  var lvl=S.level, dos=S.plan&&S.plan.dosage, tp=S.teachingPlan;
+  document.getElementById('planTitle').textContent=(S.baby||'寶寶')+' 的教學計畫';
+  document.getElementById('planSub').innerHTML=
+    '英語等級 <span class="pill strong">'+lvl+'</span> '+LEVEL_NAME[lvl]
+    +(dos?' ｜ 每週 '+dos.frequency_per_week+' 次 × 每次 '+dos.session_min+' 分':'')
+    +(tp?' ｜ 計畫生成於 '+tp.generated_at+'（首次註冊生成一次，登入不會重算；課後 agent 可依學習速度微調，預設不調整）':'');
+  renderToday(); renderWeeks();
   var pr=S.progress;
   document.getElementById('progressKV').innerHTML=
     '<b>已掌握</b><div>'+(pr&&pr.mastered_topics.length?pr.mastered_topics.map(function(t){return '<span class="pill">'+t+'</span>';}).join(''):'—')+'</div>'+
     '<b>常錯</b><div>'+(pr&&pr.recurring_mistakes.length?pr.recurring_mistakes.map(function(m){return m.concept+'（'+m.pillar+'）';}).join('；'):'—')+'</div>'+
     '<b>三支柱</b><div><span class="pill hear">Hear · '+(pr?pr.pillars.hear:'—')+'</span><span class="pill read">Read · '+(pr?pr.pillars.read:'—')+'</span><span class="pill spell">Spell · '+(pr?pr.pillars.spell:'—')+'</span></div>'+
     '<b>下一步</b><div>'+(pr?pr.next_steps.join(' → '):'—')+'</div>';
-  if(S.phys){
-    var ph=S.phys;
-    document.getElementById('physKV').innerHTML=
-      '<b>生理階段</b><div>第 '+ph.physiological+' 階段（月齡 '+S.months+' 個月）</div>'+
-      '<b>整體發育</b><div>第 '+ph.overall+' 階段</div>'+
-      PATHWAYS.map(function(p){
-        var st=ph.pathways[p.key].stage;
-        var mark=st<ph.physiological?'<span class="pill strong">薄弱</span>':(st>ph.physiological?'<span class="pill deep">優勢</span>':'<span class="pill">達標</span>');
-        return '<b>'+p.name+'</b><div>第 '+st+' 階段 '+mark+'</div>';
-      }).join('')+
-      '<b>薄弱項</b><div>'+(ph.weak.length?ph.weak.join('、'):'—')+'</div>'+
-      '<b>優勢項</b><div>'+(ph.strong.length?ph.strong.join('、'):'—')+'</div>';
+}
+function renderToday(){
+  var box=document.getElementById('todayCard'); if(!box)return;
+  var plan=S.teachingPlan, s=S.schedule||{current_week:0,current_lesson:0,completed:[]};
+  if(!plan){ box.innerHTML='<div class="note">尚未生成教學計畫。</div>'; return; }
+  var wk=plan.weeks[s.current_week];
+  if(!wk){
+    box.innerHTML='<div class="note">🎉 四週計畫全部完成！可於「設定」重填問卷生成新計畫。</div>';
+    return;
   }
-  document.getElementById('routingNote').innerHTML=
-    '內容生成（見 Agent.md §8.1）：評估／課程／Avatar 配置由規則庫或同一 agent 內部完成；'
-    +'英語對話與語音統一由 <span class="pill strong">ElevenLabs Agent</span>（生成＋TTS 一體）處理。本原型以規則引擎模擬，不呼叫外部服務。';
+  var ls=wk.lessons[s.current_lesson]||wk.lessons[0];
+  box.innerHTML=
+    '<div class="kv">'+
+    '<b>日期</b><div>'+new Date().toISOString().slice(0,10)+'（第 '+(s.current_week+1)+' 週 · '+ls.day+'）</div>'+
+    '<b>今日焦點</b><div>'+ls.activity+'</div>'+
+    '<b>支柱</b><div><span class="pill '+pillarClass(ls.pillar)+'">'+ls.pillar+'</span></div>'+
+    '<b>目標詞</b><div>'+(ls.words||'—')+'</div>'+
+    '<b>做法</b><div>'+ls.how+'</div>'+
+    '<b>目標</b><div>'+ls.goal+'</div>'+
+    '</div>'+
+    '<div class="row"><button onclick="completeLesson()">✅ 完成本課</button>'+
+    '<span class="pill">已上 '+s.completed.length+' 課</span></div>';
+}
+function renderWeeks(){
+  var box=document.getElementById('weekPlan'); if(!box)return;
+  var plan=S.teachingPlan; if(!plan){ box.innerHTML=''; return; }
+  box.innerHTML=plan.weeks.map(function(w){
+    return '<div style="border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px">'+
+      '<b>第 '+w.week+' 週 · '+w.focus+'</b>'+
+      w.lessons.map(function(l){
+        return '<div style="margin:8px 0 0;font-size:13px">'
+          +'<span class="pill '+pillarClass(l.pillar)+'">'+l.pillar+'</span> '
+          +'<b>'+l.day+'</b> '+l.activity
+          +'<div style="color:var(--muted);font-size:12px">目標詞：'+(l.words||'—')+' ｜ '+l.how+' ｜ '+l.goal+'</div></div>';
+      }).join('')+
+      '</div>';
+  }).join('');
+}
+function completeLesson(){
+  var plan=S.teachingPlan, s=S.schedule||{current_week:0,current_lesson:0,completed:[]};
+  if(!plan)return;
+  var wk=plan.weeks[s.current_week];
+  if(!wk)return;
+  var ls=wk.lessons[s.current_lesson]||wk.lessons[0];
+  s.completed.push('第'+(s.current_week+1)+'週 '+ls.day+' '+ls.activity);
+  s.current_lesson++;
+  if(s.current_lesson>=wk.lessons.length){ s.current_lesson=0; s.current_week++; }
+  S.schedule=s;
+  renderToday();
+  savePlan(); // 課後進度即時持久化
 }
 function pillarClass(pillar){
   if(pillar.toLowerCase().indexOf('hear')>=0)return 'hear';
@@ -822,6 +874,7 @@ function loadDb(user){
   var db = b64 ? new SQL.Database(base64ToUint8(b64)) : new SQL.Database();
   db.run("CREATE TABLE IF NOT EXISTS answers(q_key TEXT PRIMARY KEY,q_value TEXT,updated_at TEXT DEFAULT (datetime('now')));");
   db.run("CREATE TABLE IF NOT EXISTS assessment(id INTEGER PRIMARY KEY CHECK(id=1),snapshot TEXT,updated_at TEXT DEFAULT (datetime('now')));");
+  db.run("CREATE TABLE IF NOT EXISTS plan(id INTEGER PRIMARY KEY CHECK(id=1),plan_json TEXT,schedule_json TEXT,updated_at TEXT DEFAULT (datetime('now')));");
   return db;
 }
 function saveDb(){ if(!DB||!S.user)return; localStorage.setItem('sb_db_'+S.user, uint8ToBase64(DB.export())); }
@@ -881,16 +934,36 @@ function loadAnswers(){
   if(b&&b.value) renderAge(); // 依出生日期重建 EA/EB 與六通路題目（renderAge 會設 S.months）
   applyAnswersFromDb();
 }
-function saveAll(){ saveAnswers(); saveSnapshot(); }
+function savePlan(){
+  if(!DB||!S.user||!S.teachingPlan)return;
+  var sched=S.schedule||{current_week:0,current_lesson:0,completed:[]};
+  DB.run("INSERT OR REPLACE INTO plan(id,plan_json,schedule_json,updated_at) VALUES(1,?,?,datetime('now'))",[JSON.stringify(S.teachingPlan),JSON.stringify(sched)]);
+  saveDb();
+}
+function loadPlan(){
+  if(!DB)return null;
+  var res=DB.exec("SELECT plan_json,schedule_json FROM plan WHERE id=1");
+  if(res.length&&res[0].values.length){try{return {plan:JSON.parse(res[0].values[0][0]),schedule:JSON.parse(res[0].values[0][1]||'{}')};}catch(e){}}
+  return null;
+}
+function saveAll(){ saveAnswers(); saveSnapshot(); savePlan(); }
 function afterLogin(user){
   S.user=user;
   return initSql().then(function(){
     DB=loadDb(user);
     var hasAnswers = DB.exec("SELECT COUNT(*) FROM answers")[0].values[0][0] > 0;
     if(hasAnswers){
-      loadAnswers();                 // 已填過：直接載入答案
-      submitAssessment();            // 由答案重算評估並存快照 → 自動進入主頁
-      if(!S.plan) go('questionnaire'); // 答案不完整（缺出生日期）→ 回到問卷
+      loadAnswers();                       // 已填過：載入答案
+      if(!computeAssessment()){ go('questionnaire'); return; } // 答案不完整（缺出生日期）
+      var saved=loadPlan();
+      if(saved){
+        S.teachingPlan=saved.plan;         // 計畫只生成一次：登入直接沿用
+        S.schedule=saved.schedule||{current_week:0,current_lesson:0,completed:[]};
+      }else{
+        generateTeachingPlan(); savePlan(); // 舊帳號無計畫 → 首次生成
+      }
+      renderPlan(); renderMistakes(); renderSched();
+      go('dash'); tab('plan');
       return;
     }
     go('questionnaire');             // 新帳號：填問卷
