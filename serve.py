@@ -289,6 +289,7 @@ def generate_plan_with_deepseek(profile):
         try:
             r = json.loads(urllib.request.urlopen(req, timeout=200).read().decode())
             content = r['choices'][0]['message']['content']
+            content = re.sub(r'^```(?:json)?\s*|\s*```$', '', (content or '').strip(), flags=re.S)  # 容錯：剝離 markdown 圍欄
             plan = json.loads(content)
             if not plan.get('weeks') or len(plan['weeks']) != 4:
                 return None, 'DeepSeek 回傳格式不符（weeks 需 4 週）'

@@ -686,7 +686,7 @@ function fetchPlanAttempt(profile,left){
   S.generating=true;
   try{ renderPlan(); }catch(e){}   // 立即顯示「正在生成…」狀態
   var ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
-  var timer=ctrl?setTimeout(function(){ctrl.abort();},200000):null; // 200s/次；絕不卡死
+  var timer=ctrl?setTimeout(function(){ctrl.abort();},300000):null; // 300s/次；DeepSeek 高負載 1–3 分鐘常見
   return apiFetch('POST','/api/generate-plan',profile,ctrl).then(function(res){
     if(!res.ok)throw new Error((res.j&&res.j.error)||'generate-plan failed');
     var p=res.j.plan;
@@ -1194,6 +1194,12 @@ function afterLogin(user){
     }).catch(function(){ setMsg("無法連接伺服器：請檢查網路後重新整理頁面再試（若剛更新部署，請等 1 分鐘）", true); });
   }
   btn.addEventListener("click", login);
+
+  // 自動登入：localStorage 有 token 就直接進 dashboard（autoRegenerate 會背景升級本地計畫）
+  if(API.token && API.user){
+    setMsg("自動登入中…");
+    afterLogin(API.user).catch(function(){ setMsg("自動登入失敗，請重新登入", true); });
+  }
 
   var out = document.getElementById("btnLogout");
   if(out){
