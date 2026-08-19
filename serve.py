@@ -6,6 +6,18 @@
 #   DATABASE_PRIVATE_URL 或 DATABASE_URL                        Postgres 連線（Railway: ${{ Postgres.DATABASE_PRIVATE_URL }}）
 #   PORT / SB_PORT                                             監聽埠（Railway 注入 PORT）
 import http.server, os, json, socketserver, sys, re, hashlib, hmac, secrets, urllib.parse
+from contextlib import contextmanager
+
+@contextmanager
+def _cur(c):  # pg8000 cursor 不支援 with，自訂 context manager
+    cur = c.cursor()
+    try:
+        yield cur
+    finally:
+        try:
+            cur.close()
+        except Exception:
+            pass
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 AGENT_ID = 'agent_0801m0c2cy4sftabmmjhd9bn02vp'
@@ -79,7 +91,7 @@ def db():
             host=u.hostname or 'localhost',
             port=u.port or 5432,
             database=(u.path or '/postgres').lstrip('/'))
-        with _db.cursor() as cur:
+        with _cur(_db) as cur:
             for stmt in SCHEMA:  # pg8000 不支援單一 execute 多條 SQL，逐句執行
                 cur.execute(stmt)
         _db.commit()
@@ -179,7 +191,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 if uid is None:
                     self._send_json(401, {'error': 'unauthorized'})
                     return
-                with c.cursor() as cur:
+                with _cur(c) as cur:
                     cur.execute('SELECT q_key,q_value FROM answers WHERE user_id=%s', (uid,))
                     answers = {k: v for k, v in cur.fetchall()}
                     cur.execute('SELECT snapshot FROM snapshots WHERE user_id=%s', (uid,))
@@ -221,7 +233,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(400, {'error': '用戶名需 2–32 位（字母、數字、_、-）'}); return
             if len(p) < 6:
                 self._send_json(400, {'error': '密碼至少 6 位'}); return
-            with c.cursor() as cur:
+            with _cur(c) as cur:
                 cur.execute('SELECT id FROM users WHERE username=%s', (u,))
                 if cur.fetchone():
                     self._send_json(409, {'error': '此用戶名已存在，請直接登入'}); return
@@ -237,7 +249,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(400, {'error': 'bad request'}); return
             u = (body.get('username') or '').strip()
             p = body.get('password') or ''
-            with c.cursor() as cur:
+            with _cur(c) as cur:
                 cur.execute('SELECT id, pass_hash FROM users WHERE username=%s', (u,))
                 row = cur.fetchone()
                 if not row or not verify_pw(p, row[1]):
@@ -248,7 +260,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return
         if path == '/api/logout':
             t = self._bearer()
-            with c.cursor() as cur:
+            with _cur(c) as cur:
                 cur.execute('DELETE FROM sessions WHERE token=%s', (t,))
             c.commit()
             self._send_json(200, {'ok': True})
@@ -281,7 +293,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             ans = body.get('answers') or {}
             if not isinstance(ans, dict) or len(ans) > 500:
                 self._send_json(400, {'error': 'bad answers'}); return
-            with c.cursor() as cur:
+            with _cur(c) as cur:
                 for k, v in ans.items():
                     cur.execute(
                         'INSERT INTO answers(user_id,q_key,q_value) VALUES(%s,%s,%s) '
@@ -294,7 +306,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             snap = body.get('snapshot')
             if not isinstance(snap, dict):
                 self._send_json(400, {'error': 'bad snapshot'}); return
-            with c.cursor() as cur:
+            with _cur(c) as cur:
                 cur.execute(
                     'INSERT INTO snapshots(user_id,snapshot) VALUES(%s,%s::jsonb) '
                     'ON CONFLICT (user_id) DO UPDATE SET snapshot=EXCLUDED.snapshot, updated_at=now()',
@@ -308,7 +320,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(400, {'error': 'bad plan'}); return
             if not isinstance(sched, dict):
                 sched = {}
-            with c.cursor() as cur:
+            with _cur(c) as cur:
                 cur.execute(
                     'INSERT INTO plans(user_id,plan_json,schedule_json) VALUES(%s,%s::jsonb,%s::jsonb) '
                     'ON CONFLICT (user_id) DO UPDATE SET plan_json=EXCLUDED.plan_json, schedule_json=EXCLUDED.schedule_json, updated_at=now()',
