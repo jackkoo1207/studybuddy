@@ -13,32 +13,32 @@ PORT = int(os.environ.get('PORT') or os.environ.get('SB_PORT') or 8123)
 PBKDF2_ITER = 100_000
 DB_URL = os.environ.get('DATABASE_PRIVATE_URL') or os.environ.get('DATABASE_URL') or ''
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS users(
+SCHEMA = [
+"""CREATE TABLE IF NOT EXISTS users(
   id SERIAL PRIMARY KEY,
   username TEXT UNIQUE NOT NULL,
   pass_hash TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now());
-CREATE TABLE IF NOT EXISTS sessions(
+  created_at TIMESTAMPTZ DEFAULT now())""",
+"""CREATE TABLE IF NOT EXISTS sessions(
   token TEXT PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ DEFAULT now());
-CREATE TABLE IF NOT EXISTS answers(
+  created_at TIMESTAMPTZ DEFAULT now())""",
+"""CREATE TABLE IF NOT EXISTS answers(
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   q_key TEXT NOT NULL,
   q_value TEXT NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT now(),
-  PRIMARY KEY(user_id, q_key));
-CREATE TABLE IF NOT EXISTS snapshots(
+  PRIMARY KEY(user_id, q_key))""",
+"""CREATE TABLE IF NOT EXISTS snapshots(
   user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   snapshot JSONB NOT NULL,
-  updated_at TIMESTAMPTZ DEFAULT now());
-CREATE TABLE IF NOT EXISTS plans(
+  updated_at TIMESTAMPTZ DEFAULT now())""",
+"""CREATE TABLE IF NOT EXISTS plans(
   user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   plan_json JSONB NOT NULL,
   schedule_json JSONB NOT NULL,
-  updated_at TIMESTAMPTZ DEFAULT now());
-"""
+  updated_at TIMESTAMPTZ DEFAULT now())""",
+]
 
 # ---------- ElevenLabs config injection ----------
 def _env_api_key():
@@ -62,9 +62,10 @@ def el_config_js():
 
 # ---------- Postgres ----------
 _db = None
+_db_err = ''
 
 def db():
-    global _db
+    global _db, _db_err
     if _db is not None:
         return _db
     if not DB_URL:
@@ -79,11 +80,18 @@ def db():
             port=u.port or 5432,
             database=(u.path or '/postgres').lstrip('/'))
         with _db.cursor() as cur:
-            cur.execute(SCHEMA)
+            for stmt in SCHEMA:  # pg8000 不支援單一 execute 多條 SQL，逐句執行
+                cur.execute(stmt)
         _db.commit()
         return _db
     except Exception as e:
+        _db_err = str(e)[:200]
         sys.stderr.write('[serve.py] DB connect failed: %s\n' % e)
+        try:
+            if _db is not None:
+                _db.rollback()
+        except Exception:
+            pass
         _db = None  # 下次重試
         return None
 
@@ -160,7 +168,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return
         if path == '/healthz':
             host = urllib.parse.urlparse(DB_URL).hostname if DB_URL else None
-            self._send_json(200, {'ok': True, 'db': bool(DB_URL), 'db_host': host})
+            self._send_json(200, {'ok': True, 'db': bool(DB_URL), 'db_host': host, 'db_err': _db_err or None})
             return
         if path == '/api/state':
             try:
