@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>StudyBuddy 學前英語陪練 — 原型</title>
+<style>
+  :root{
+    --bg:#f5f7fb; --card:#ffffff; --ink:#1f2733; --muted:#6b7686;
+    --brand:#4f7cff; --brand2:#7c5cff; --ok:#27ae60; --warn:#e67e22;
+    --hear:#ff8a5c; --read:#4f7cff; --spell:#27c2a0; --line:#e6eaf0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"PingFang HK","Microsoft JhengHei",Segoe UI,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.6}
+  header{background:linear-gradient(120deg,var(--brand),var(--brand2));color:#fff;padding:14px 22px;
+    display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+  header .logo{font-weight:700;font-size:18px;letter-spacing:.5px}
+  header .who{font-size:13px;opacity:.9}
+  .wrap{max-width:880px;margin:18px auto;padding:0 16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px;
+    box-shadow:0 2px 10px rgba(20,30,60,.04)}
+  h2{margin:0 0 4px;font-size:20px}
+  h3{margin:18px 0 8px;font-size:15px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+  p.sub{color:var(--muted);margin:0 0 14px;font-size:13px}
+  label{display:block;font-size:14px;margin:12px 0 4px;font-weight:600}
+  input[type=text],input[type=date],select,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);
+    border-radius:10px;font-size:14px;background:#fff;color:var(--ink)}
+  textarea{resize:vertical;min-height:64px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .opt{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+  .chip{padding:7px 12px;border:1px solid var(--line);border-radius:999px;background:#fff;cursor:pointer;font-size:13px}
+  .chip.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+  button{font-family:inherit;cursor:pointer;border:none;border-radius:10px;padding:11px 18px;font-size:14px;
+    font-weight:600;background:var(--brand);color:#fff}
+  button.ghost{background:#fff;color:var(--brand);border:1px solid var(--brand)}
+  button:active{transform:translateY(1px)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px}
+  .tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin-bottom:14px;flex-wrap:wrap}
+  .tab{padding:9px 14px;cursor:pointer;border-bottom:2px solid transparent;font-size:14px;color:var(--muted)}
+  .tab.on{color:var(--brand);border-bottom-color:var(--brand);font-weight:700}
+  .pill{display:inline-block;font-size:12px;padding:3px 9px;border-radius:999px;background:#eef2ff;color:var(--brand);margin:2px}
+  .pill.hear{background:#fff0ea;color:#d2542a}
+  .pill.read{background:#eaf0ff;color:#2f5bd0}
+  .pill.spell{background:#e6f8f2;color:#119b80}
+  .pill.deep{background:#e9f7ee;color:#1e874b}
+  .pill.strong{background:#fdeef0;color:#c0392b}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;background:#fafbfe}
+  .kv{display:grid;grid-template-columns:140px 1fr;gap:6px 12px;font-size:13px}
+  .kv b{color:var(--muted);font-weight:600}
+  .act{display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid var(--line);border-radius:10px;margin:8px 0}
+  .act .dot{width:8px;height:8px;border-radius:50%;margin-top:7px;flex:none}
+  .dot.hear{background:var(--hear)} .dot.read{background:var(--read)} .dot.spell{background:var(--spell)}
+  .sched{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:8px}
+  .day{background:#fafbfe;border:1px solid var(--line);border-radius:10px;padding:8px;font-size:12px;min-height:70px}
+  .day b{display:block;color:var(--muted);margin-bottom:4px}
+  .mistake{border-left:4px solid var(--warn);background:#fff8f1;padding:10px 12px;border-radius:8px;margin:8px 0;font-size:13px}
+  .chat{background:#fafbfe;border:1px solid var(--line);border-radius:12px;padding:12px;height:230px;overflow:auto;font-size:14px}
+  .msg{margin:8px 0}.msg .who{font-size:11px;color:var(--muted)}
+  .msg.bot{background:#eef2ff;padding:8px 12px;border-radius:10px;display:inline-block}
+  .msg.me{background:#e9f7ee;padding:8px 12px;border-radius:10px;display:inline-block}
+  .hidden{display:none}
+  .note{font-size:12px;color:var(--muted);background:#f3f5f9;border-left:3px solid var(--line);padding:8px 10px;border-radius:6px;margin-top:10px}
+  .badge{font-size:11px;padding:2px 8px;border-radius:999px;background:#eef2ff;color:var(--brand)}
+  code{background:#f3f5f9;padding:1px 5px;border-radius:5px;font-size:12px}
+  @media(max-width:620px){.grid{grid-template-columns:1fr}.kv{grid-template-columns:110px 1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">🧸 StudyBuddy</div>
+  <div style="display:flex;align-items:center;gap:14px">
+    <div class="who" id="hdrWho">學前英語陪練 · 原型</div>
+    <button id="btnLogout" style="display:none;background:none;color:#fff;text-decoration:underline;font-weight:600;padding:6px 4px;cursor:pointer;border:none;font-family:inherit;font-size:13px">登出</button>
+  </div>
+</header>
+
+<div class="wrap" id="app">
+
+  <!-- ============ VIEW: LOGIN ============ -->
+  <section id="view-login">
+    <div class="card">
+      <h2>家長登入</h2>
+      <p class="sub" id="loginSub">使用本地帳號（localStorage）登入；首次使用可即時註冊。</p>
+      <label>用戶名</label>
+      <input type="text" id="inUser" placeholder="例如：chentai" autocomplete="username" />
+      <label>密碼</label>
+      <input type="password" id="inPw" placeholder="至少 6 位" autocomplete="current-password" />
+      <div class="row">
+        <button id="btnLogin">登入</button>
+        <button id="linkMode" class="link" type="button">沒有帳號？註冊</button>
+      </div>
+      <div id="loginMsg" class="msg"></div>
+    </div>
+  </section>
+
+  <!-- ============ VIEW: QUESTIONNAIRE ============ -->
+  <section id="view-questionnaire" class="hidden">
+    <div class="card">
+      <h2>寶寶發展問卷</h2>
+      <p class="sub">節錄自 questionnaires.md，原型僅取關鍵題以演示流程。</p>
+
+      <h3>寶寶資料（選填）</h3>
+      <label>家長稱呼</label>
+      <input type="text" id="inParent" placeholder="例如：陳太" />
+      <label>寶寶名字</label>
+      <input type="text" id="inBaby" placeholder="例如：小宇" />
+
+      <label>寶寶出生日期（B1）</label>
+      <input type="date" id="inBirth" onchange="renderAge()" />
+      <div id="ageOut" class="pill" style="margin-top:6px"></div>
+
+      <label>主要家庭語言（B5）</label>
+      <div class="opt" data-name="lang">
+        <span class="chip" data-v="廣東話">廣東話</span>
+        <span class="chip" data-v="普通話">普通話</span>
+        <span class="chip" data-v="英語">英語</span>
+      </div>
+
+      <label>居住城市線級（F1）</label>
+      <div class="opt" data-name="tier">
+        <span class="chip" data-v="1線">一線</span>
+        <span class="chip" data-v="2線">二線</span>
+        <span class="chip" data-v="3線">三線</span>
+        <span class="chip" data-v="4線">四線</span>
+        <span class="chip" data-v="5線">五線</span>
+        <span class="chip" data-v="香港">香港</span>
+      </div>
+
+      <h3>英語環境（E1–E6）</h3>
+      <label>E1 每天接觸英語時間</label>
+      <select id="E1">
+        <option>幾乎沒有</option><option>少於 15 分鐘</option>
+        <option>15–30 分鐘</option><option>30–60 分鐘</option><option>1 小時以上</option>
+      </select>
+      <label>E3 家長是否用英語互動</label>
+      <select id="E3"><option>經常</option><option>有時</option><option>很少</option><option>從不</option></select>
+      <label>E4 是否常聽到標準英語發音</label>
+      <select id="E4"><option>每天</option><option>每週數次</option><option>偶爾</option><option>從未</option></select>
+
+      <h3 id="abilityTitle">寶寶英語能力</h3>
+      <div id="abilityBox"></div>
+
+      <h3>目標與約束（G1–G4）</h3>
+      <label>G1 最希望優先提升</label>
+      <div class="opt" data-name="goal">
+        <span class="chip" data-v="聽力理解">聽力理解</span>
+        <span class="chip" data-v="口語表達">口語表達</span>
+        <span class="chip" data-v="詞彙量">詞彙量</span>
+        <span class="chip" data-v="語音意識">語音意識(Phonics)</span>
+        <span class="chip" data-v="讀寫預備">讀寫預備</span>
+        <span class="chip" data-v="溝通自信">整體溝通自信</span>
+      </div>
+      <label>G2 每週練習頻率</label>
+      <div class="opt" data-name="freq">
+        <span class="chip" data-v="每天 10 分鐘">每天 10 分鐘</span>
+        <span class="chip" data-v="每週 3-4 次">每週 3–4 次</span>
+        <span class="chip" data-v="每週 1-2 次">每週 1–2 次</span>
+        <span class="chip" data-v="不確定">不確定</span>
+      </div>
+      <label>G3 螢幕接受度</label>
+      <div class="opt" data-name="screen">
+        <span class="chip" data-v="完全接受">完全接受</span>
+        <span class="chip" data-v="適度使用">適度使用</span>
+        <span class="chip" data-v="盡量減少">盡量減少</span>
+        <span class="chip" data-v="不接受">不接受</span>
+      </div>
+
+      <label>家長補充描述（用於性格推斷）</label>
+      <textarea id="inNote" placeholder="例如：寶寶很好動、坐不住，愛到處爬；有時怕生，但熟悉後愛笑愛互動…"></textarea>
+
+      <div class="row">
+        <button onclick="submitAssessment()">提交評估 →</button>
+        <button class="ghost" onclick="go('login')">返回</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ VIEW: DASHBOARD ============ -->
+  <section id="view-dash" class="hidden">
+    <div class="card">
+      <div class="tabs">
+        <div class="tab on" data-tab="plan" onclick="tab('plan')">教學計畫 / 進度</div>
+        <div class="tab" data-tab="chat" onclick="tab('chat')">Chatbot</div>
+        <div class="tab" data-tab="mistake" onclick="tab('mistake')">概念性錯誤</div>
+        <div class="tab" data-tab="sched" onclick="tab('sched')">時間表</div>
+      </div>
+
+      <!-- TAB: PLAN -->
+      <div id="tab-plan">
+        <h2 id="planTitle">教學計畫</h2>
+        <p class="sub">由 AvatarPlan（規則兜底）＋ 教學三支柱（Hear / Read / Spell）生成。</p>
+        <h3>AvatarPlan</h3>
+        <div class="kv" id="avatarKV"></div>
+        <h3>本週課程（聚焦概念性錯誤 · 三支柱）</h3>
+        <div id="lessonActs"></div>
+        <h3>進度記憶</h3>
+        <div class="kv" id="progressKV"></div>
+        <div class="note" id="routingNote"></div>
+      </div>
+
+      <!-- TAB: CHAT -->
+      <div id="tab-chat" class="hidden">
+        <h2>數字人對話（Chatbot）</h2>
+        <p class="sub">原型以規則腳本模擬；真實上線時 turns[].en 由 ElevenLabs / Simli 唸出（強模型路由）。</p>
+        <div class="chat" id="chatBox"></div>
+        <div class="row">
+          <input type="text" id="chatIn" placeholder="輸入寶寶的回應（模擬）…" style="flex:1" />
+          <button onclick="sendChat()">送出</button>
+        </div>
+        <div class="note">語音耦合：孩子拼讀 aloud（Spell）→ 走強模型；本原型以文字模擬。</div>
+      </div>
+
+      <!-- TAB: MISTAKE -->
+      <div id="tab-mistake" class="hidden">
+        <h2>常見概念性錯誤</h2>
+        <p class="sub">迷思映射到所屬支柱追蹤，便於針對性練習。</p>
+        <div id="mistakeList"></div>
+      </div>
+
+      <!-- TAB: SCHED -->
+      <div id="tab-sched" class="hidden">
+        <h2>每週時間表</h2>
+        <p class="sub" id="schedSub"></p>
+        <div class="sched" id="schedGrid"></div>
+        <div class="note">原型以本地排課演示；真實上線可匯入／匯出 Google Calendar（見 Task.md）。</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* ============ 規則引擎（對標 prompts.py / personality.md，離線兜底路徑） ============ */
+var TIER_FACTOR={"1線":1.0,"2線":0.9,"3線":0.8,"4線":0.6,"5線":0.4,"香港":0.9};
+var SCREEN_ACCEPT={"完全接受":1.0,"適度使用":0.7,"盡量減少":0.4,"不接受":0.0};
+var BASE_SESSION_MIN={"L0":0,"L1":5,"L2":8,"L3":10,"L4":12};
+var G2_FREQ={"每天 10 分鐘":6,"每週 3-4 次":4,"每週 1-2 次":2,"不確定":3};
+var ARCH={"explorer":"Guide","observer":"Companion","socializer":"Playmate","performer":"Host","thinker":"Captain","sensory":"Sensory"};
+var ARCH_ZH={"explorer":"探索者","observer":"觀察者","socializer":"社交家","performer":"表演者","thinker":"思考者","sensory":"感官者"};
+var CLUE={explorer:["好動","坐不住","好奇","到處爬","愛跑"],
+  observer:["慢熱","怕生","先看後做","安靜","黏人"],
+  socializer:["愛笑","愛互動","愛跟人玩","愛被注意"],
+  performer:["愛唱跳","愛重複","愛被夸","小話癆"],
+  thinker:["專注","愛拼圖","話少","自己玩"],
+  sensory:["動手","愛摸","視覺強","要具體","怕抽象"]};
+var LEVEL_NAME={"L0":"Sound Exposure","L1":"Word Awareness","L2":"Phrase Builder","L3":"Early Talker","L4":"Pre-A1 Starters"};
+
+/* 登入：純前端 localStorage 示範（無後端、無 Firebase）。 */
+
+var S={}; // 全域狀態
+
+/* 選項 chip 綁定 */
+document.querySelectorAll('.opt').forEach(function(o){
+  o.addEventListener('click',function(e){
+    if(!e.target.classList.contains('chip'))return;
+    o.querySelectorAll('.chip').forEach(function(c){c.classList.remove('on');});
+    e.target.classList.add('on');
+    S[o.dataset.name]=e.target.dataset.v;
+  });
+});
+
+function go(v){
+  ['login','questionnaire','dash'].forEach(function(x){
+    document.getElementById('view-'+x).classList.toggle('hidden', x!==v);
+  });
+  var lo=document.getElementById('btnLogout'); if(lo) lo.style.display=(v==='dash')?'inline-block':'none';
+  if(v==='questionnaire') renderAge();
+  if(v==='dash') document.getElementById('hdrWho').textContent =
+    (S.baby||'寶寶')+' · '+(S.parent||'家長');
+}
+function tab(t){
+  document.querySelectorAll('.tab').forEach(function(x){x.classList.toggle('on',x.dataset.tab===t);});
+  ['plan','chat','mistake','sched'].forEach(function(x){
+    document.getElementById('tab-'+x).classList.toggle('hidden',x!==t);
+  });
+}
+
+function monthsFrom(d){
+  var b=new Date(d), n=new Date();
+  return Math.max(0, (n.getFullYear()-b.getFullYear())*12 + (n.getMonth()-b.getMonth()) + (n.getDate()<b.getDate()?-1:0));
+}
+function renderAge(){
+  var d=document.getElementById('inBirth').value;
+  if(!d)return;
+  var m=monthsFrom(d); S.months=m;
+  document.getElementById('ageOut').textContent='估算月齡：'+m+' 個月（'+Math.floor(m/12)+'歲'+(m%12)+'個月）';
+  var box=document.getElementById('abilityBox');
+  if(m<18){
+    box.innerHTML='<div class="note">未滿 18 個月：僅評英語環境，等級鎖 L0。</div>';
+  }else if(m<36){
+    box.innerHTML=abilityEA();
+  }else{
+    box.innerHTML=abilityEB();
+  }
+}
+function abilityEA(){
+  var qs=[['EA1','聽英文兒歌會安靜/轉頭/有興趣'],['EA2','跟英文兒歌做動作'],
+    ['EA3','對英文指令有反應(Clap/Wave)'],['EA4','模仿英文聲音或單字'],
+    ['EA5','指認圖卡常見物品(cat/car/banana)']];
+  return qs.map(function(q){
+    return '<label>'+q[0]+' '+q[1]+'</label><select id="'+q[0]+'">'
+      +'<option>經常</option><option>有時</option><option>很少</option><option>從不</option></select>';
+  }).join('');
+}
+function abilityEB(){
+  var qs=[['EB1','用英文回答簡單問題(What is your name)'],['EB2','用英文表達需求(I want water)'],
+    ['EB3','唱兒歌或跟讀短句'],['EB4','注意英文字母/單字形狀'],['EB5','分辨單字開頭音(b-b-ball)'],
+    ['EB6','認出並說出 10 個以上單字'],['EB7','對話中主動發問/延續話題']];
+  return qs.map(function(q){
+    return '<label>'+q[0]+' '+q[1]+'</label><select id="'+q[0]+'">'
+      +'<option>經常</option><option>有時</option><option>很少</option><option>從不</option></select>';
+  }).join('');
+}
+
+/* ---- 評估計算 ---- */
+function envLevel(){
+  var e1=document.getElementById('E1').value, e3=document.getElementById('E3').value, e4=document.getElementById('E4').value;
+  if(("幾乎沒有".indexOf(e1)>=0)&&e3==="很少"&&e4==="從未")return 0;
+  if(e1==="幾乎沒有"||e3==="很少"||e4==="偶爾")return 1;
+  if((e1.indexOf("15")>=0||e1.indexOf("30")>=0)&&(e3==="有時"||e3==="經常")&&(e4==="每週數次"||e4==="每天"))return 2;
+  if((e1.indexOf("30")>=0||e1.indexOf("1 小時")>=0)&&e3==="經常"&&e4==="每天")return 3;
+  return 2;
+}
+function englishLevel(){
+  var m=S.months;
+  if(m<18)return "L0";
+  var map={"經常":3,"有時":2,"很少":1,"從不":0}, s=0, el, k;
+  if(m<36){
+    ['EA1','EA2','EA3','EA4','EA5'].forEach(function(k){ el=document.getElementById(k); if(el) s+=map[el.value]; });
+    return (s/15)>=0.5?"L2":"L1";
+  }else{
+    ['EB1','EB2','EB3','EB4','EB5','EB6','EB7'].forEach(function(k){ el=document.getElementById(k); if(el) s+=map[el.value]; });
+    return (s/21)>=0.7?"L4":((s/21)>=0.45?"L3":"L2");
+  }
+}
+function inferPersonality(){
+  var note=(document.getElementById('inNote').value||""), best="socializer", score=-1, k;
+  for(k in CLUE){
+    var sc=CLUE[k].reduce(function(a,w){ return a+(note.indexOf(w)>=0?1:0); },0);
+    if(sc>score){score=sc;best=k;}
+  }
+  return {primary:best,confidence:score>0?Math.min(0.9,0.5+score*0.1):0.6};
+}
+function computeDosage(level,freqKey,screenKey,tierKey){
+  var tf=TIER_FACTOR[tierKey]!=null?TIER_FACTOR[tierKey]:0.9, sa=SCREEN_ACCEPT[screenKey]!=null?SCREEN_ACCEPT[screenKey]:0.7;
+  var base=BASE_SESSION_MIN[level]!=null?BASE_SESSION_MIN[level]:8, freq=G2_FREQ[freqKey]!=null?G2_FREQ[freqKey]:3;
+  var session=sa===0?0:Math.max(1,Math.round(base*tf*sa)); // AAP 三重夾緊：base × 城市線係數 × 家長接受度
+  var mode = sa===0?"offline":(session>0?"video":"exposure");
+  return {session_min:session,frequency_per_week:freq,weekly_min:session*freq,mode:mode};
+}
+
+/* ---- 課程模板（三支柱） ---- */
+function lessonActivities(level,goal){
+  var T={
+    L0:[["Hear","聲音暴露：每天播放英文兒歌 5 分鐘，觀察寶寶是否轉頭/安靜"],
+        ["Hear","親子節奏律動：拍手唱 Clap your hands"],
+        ["Read","共讀準備：拿對比鮮明圖卡在眼前 20–30cm 緩慢移動"]],
+    L1:[["Hear","TPR 指令：Touch your nose 邊說邊做"],
+        ["Read","實物命名：拿起球說 ball，讓寶寶指認"],
+        ["Spell","說出字母音：展示 A 磚說 /æ/，鼓勵跟說"]],
+    L2:[["Hear","兒歌跟唱：Twinkle Twinkle 跟唱"],
+        ["Read","圖卡配對：cat/dog 圖卡配對遊戲"],
+        ["Spell","拼給 agent：說出 C-A-T 三個字母音，agent 核對回饋"]],
+    L3:[["Hear","數字人簡單問答：What is this? → 寶寶答"],
+        ["Read","主題詞彙：動物主題詞卡指讀"],
+        ["Spell","Phonics 遊戲：b-b-ball / c-c-cat 首音覺察拼讀"]],
+    L4:[["Hear","角色扮演：At the park 對話"],
+        ["Read","故事複述：看圖說出簡單故事"],
+        ["Spell","基礎拼字：拼出 cat/dog，agent 接收並示範正確拼讀"]]
+  };
+  return (T[level]||T.L2).map(function(a){ return {pillar:a[0],text:a[1]}; });
+}
+var MISTAKES=[
+  {c:"b / p 首音混淆",pillar:"Hear+Spell",drill:"Phonics 首音覺察遊戲（b-b-ball / p-p-pig）"},
+  {c:"字形誤認（b / d 反轉）",pillar:"Read",drill:"大字卡定向對比＋手部描寫"},
+  {c:"中英混用（中英文詞混說）",pillar:"Hear+Read",drill:"情境分隔：英文時間只說英文"}
+];
+
+/* ---- 提交評估 ---- */
+function submitAssessment(){
+  S.parent=document.getElementById('inParent').value||"家長";
+  S.baby=document.getElementById('inBaby').value||"寶寶";
+  if(!S.months){alert("請先填寫寶寶出生日期");return;}
+  var env=envLevel(), lvl=englishLevel(), per=inferPersonality(), tier=S.tier||"香港";
+  var dos=computeDosage(lvl,S.freq||"不確定",S.screen||"適度使用",tier);
+  var bonus={"1線":0.3,"2線":0.2,"3線":0.1,"4線":-0.2,"5線":-0.2,"香港":0.2}[tier]||0;
+  var effEnv=Math.min(3,Math.max(0,env+bonus)).toFixed(1);
+  var engReady = (S.months>=36 && lvl!=="L0");
+  if(!engReady){ // <3 歲 / 尚未開口：僅聲音暴露，不開數字人對話（Agent.md 安全紅線）
+    var cap=Math.min(dos.session_min,5);
+    dos={session_min:cap,frequency_per_week:dos.frequency_per_week,weekly_min:cap*dos.frequency_per_week,mode:"exposure"};
+  }
+  var matrix="env"+env+" × "+lvl;
+  S.plan={
+    segment:{env_level:env,effective_env:effEnv,foundation:lvl,matrix_cell:matrix},
+    personality:{primary:per.primary,secondary:"",confidence:per.confidence,from_parent_note:per.confidence>0.5},
+    avatar_persona:ARCH[per.primary],
+    dosage:dos,
+    safety:{ok:engReady,notes:[engReady?"已開啟對話（數字人互動）":"未滿 3 歲 / 尚未開口：僅聲音暴露，不開數字人對話","螢幕模式："+dos.mode]},
+    parent_tip:"寶寶是"+ARCH_ZH[per.primary]+"，建議依其性格調整互動節奏。"
+  };
+  S.level=lvl; S.goal=S.goal||"溝通自信";
+  renderPlan(); renderMistakes(); renderSched();
+  go('dash'); tab('plan');
+}
+
+/* ---- 渲染 ---- */
+function renderPlan(){
+  var p=S.plan, lvl=S.level;
+  document.getElementById('planTitle').textContent=S.baby+' 的教學計畫（L'+lvl.slice(1)+' · '+LEVEL_NAME[lvl]+'）';
+  var kv=document.getElementById('avatarKV');
+  kv.innerHTML=
+    '<b>英語等級</b><div>'+lvl+' · '+LEVEL_NAME[lvl]+'</div>'+
+    '<b>環境×基礎</b><div>'+p.segment.matrix_cell+'（env '+p.segment.env_level+' → 校正 '+p.segment.effective_env+'）</div>'+
+    '<b>性格原型</b><div>'+ARCH_ZH[p.personality.primary]+'（'+p.personality.primary+'） · 置信 '+p.personality.confidence+'</div>'+
+    '<b>數字人人格</b><div>'+p.avatar_persona+'</div>'+
+    '<b>分量</b><div>每次 '+p.dosage.session_min+' 分 × '+p.dosage.frequency_per_week+' 次/週 ＝ '+p.dosage.weekly_min+' 分；模式 '+p.dosage.mode+'</div>'+
+    '<b>安全</b><div>'+p.safety.notes.join('；')+'</div>'+
+    '<b>家長提示</b><div>'+p.parent_tip+'</div>';
+  var acts=lessonActivities(lvl,S.goal);
+  document.getElementById('lessonActs').innerHTML=acts.map(function(a){
+    return '<div class="act"><span class="dot '+a.pillar.toLowerCase()+'"></span>'
+      +'<div><span class="pill '+a.pillar.toLowerCase()+'">'+a.pillar+'</span> '+a.text+'</div></div>';
+  }).join('');
+  document.getElementById('progressKV').innerHTML=
+    '<b>已掌握</b><div><span class="pill">colors</span><span class="pill">animals</span></div>'+
+    '<b>常錯</b><div>b/p 首音混淆（Hear+Spell）</div>'+
+    '<b>三支柱</b><div><span class="pill hear">Hear · ok</span><span class="pill read">Read · building</span><span class="pill spell">Spell · early</span></div>'+
+    '<b>下一步</b><div>role-play: at the park → story retell</div>';
+  document.getElementById('routingNote').innerHTML=
+    '模型路由（見 Agent.md §8.1，語音為準）：評估/課程/Avatar → <span class="pill deep">DeepSeek</span>（文字通道）；'
+    +'英語對話腳本 → <span class="pill strong">強模型</span>（turns 經語音唸出）。本原型以規則兜底，不呼叫任何 LLM。';
+}
+function pillarClass(pillar){
+  if(pillar.toLowerCase().indexOf('hear')>=0)return 'hear';
+  if(pillar.toLowerCase().indexOf('read')>=0)return 'read';
+  return 'spell';
+}
+function renderMistakes(){
+  document.getElementById('mistakeList').innerHTML=MISTAKES.map(function(m){
+    return '<div class="mistake"><b>'+m.c+'</b> · 支柱：<span class="pill '+pillarClass(m.pillar)+'">'+m.pillar+'</span><br>練習：<span class="pill">'+m.drill+'</span></div>';
+  }).join('');
+}
+function renderSched(){
+  var d=S.plan.dosage;
+  document.getElementById('schedSub').textContent='每週 '+d.frequency_per_week+' 次，每次 '+d.session_min+' 分（共 '+d.weekly_min+' 分）。點格模擬排課，可匯出 Google Calendar。';
+  var days=["一","二","三","四","五","六","日"];
+  var html="";
+  for(var i=0;i<7;i++){
+    var on = i < d.frequency_per_week;
+    var cell = on ? ('📚 '+d.session_min+'分<br><span class="pill hear">Hear</span> <span class="pill read">Read</span> <span class="pill spell">Spell</span>') : "—";
+    html+='<div class="day"><b>週'+days[i]+'</b>'+cell+'</div>';
+  }
+  document.getElementById('schedGrid').innerHTML=html;
+}
+
+/* ---- Chatbot（規則腳本） ---- */
+var SCRIPT=[
+  {en:"Hello! What is your name?",zh:"打招呼，問名字"},
+  {en:"Great! Can you say: cat?",zh:"請寶寶說 cat"},
+  {en:"Good job! Now spell: c-a-t",zh:"請寶寶拼出 c-a-t（Spell 互動輸入）"},
+  {en:"Perfect! You did it!",zh:"鼓勵"}
+];
+var ci=0;
+function pushChat(who,text){
+  var b=document.getElementById('chatBox');
+  b.innerHTML+='<div class="msg"><div class="who">'+who+'</div><div class="msg '+(who==='StudyBuddy'?'bot':'me')+'">'+text+'</div></div>';
+  b.scrollTop=b.scrollHeight;
+}
+function sendChat(){
+  var v=document.getElementById('chatIn').value.trim();
+  if(!v)return;
+  pushChat(S.baby,v); document.getElementById('chatIn').value="";
+  if(ci<SCRIPT.length){
+    setTimeout(function(){ pushChat('StudyBuddy', SCRIPT[ci].en+' <span style="color:#6b7686">('+SCRIPT[ci].zh+')</span>'); ci++; }, 300);
+  }else{
+    pushChat('StudyBuddy','Wow! 你真棒 🎉 <span style="color:#6b7686">(示範結束)</span>');
+  }
+}
+</script>
+
+<!-- ============ 登入（純前端 localStorage 示範，無後端） ============ -->
+<script>
+(function(){
+  var mode = "signin";
+  var btn = document.getElementById("btnLogin");
+  var link = document.getElementById("linkMode");
+  var msg = document.getElementById("loginMsg");
+  function setMsg(t, bad){ msg.textContent = t || ""; msg.className = "msg" + (bad ? " bad" : ""); }
+  function setMode(m){
+    mode = m;
+    if(m==="signup"){ btn.textContent="註冊並開始"; link.textContent="已有帳號？登入"; }
+    else { btn.textContent="登入"; link.textContent="沒有帳號？註冊"; }
+  }
+  link.addEventListener("click", function(){ setMode(mode==="signup"?"signin":"signup"); setMsg(""); });
+
+  function proceed(){
+    window.go("questionnaire");
+  }
+  function login(){
+    var u = document.getElementById("inUser").value.trim();
+    var p = document.getElementById("inPw").value;
+    if(!u){ setMsg("請填寫用戶名", true); return; }
+    if(p.length < 6){ setMsg("密碼至少 6 位", true); return; }
+    setMsg("處理中…");
+    try{
+      var db = JSON.parse(localStorage.getItem("sb_users") || "{}");
+      if(mode==="signup"){
+        if(db[u]){ setMsg("此用戶名已存在，請登入", true); return; }
+        db[u] = p; localStorage.setItem("sb_users", JSON.stringify(db));
+      } else {
+        if(!db[u] || db[u] !== p){ setMsg("用戶名或密碼錯誤", true); return; }
+      }
+      window.S.uid = "local:" + u;
+      setMsg("登入成功");
+      proceed();
+    }catch(e){ setMsg("本地登入失敗：" + e.message, true); }
+  }
+  btn.addEventListener("click", login);
+
+  var out = document.getElementById("btnLogout");
+  if(out){
+    out.addEventListener("click", function(){
+      window.S = {}; window.go("login");
+    });
+  }
+})();
+</script>
+</body>
+</html>
