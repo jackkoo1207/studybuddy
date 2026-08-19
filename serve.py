@@ -182,6 +182,24 @@ def generate_image(prompt, model=None):
         return None, 'PackyAPI 失敗：%s' % str(e)[:160]
 
 
+def packy_models():
+    """PackyAPI 模型目錄（用 Railway 的 key）。回傳 (ids, err)。"""
+    key = _packy_key()
+    if not key:
+        return None, '未設定 PACKY_CODE_API_KEY（Railway 環境變數）'
+    req = urllib.request.Request(PACKY_BASE_URL.rstrip('/') + '/v1beta/models',
+                                 headers={'Authorization': 'Bearer ' + key})
+    try:
+        r = json.loads(urllib.request.urlopen(req, timeout=30).read().decode())
+        ids = [m.get('id') for m in (r.get('data') or []) if m.get('id')]
+        return ids, None
+    except urllib.error.HTTPError as e:
+        msg = (e.read().decode() or str(e))[:200] if e.fp else str(e)[:200]
+        return None, 'PackyAPI %s: %s' % (e.code, msg)
+    except Exception as e:
+        return None, 'PackyAPI 失敗：%s' % str(e)[:160]
+
+
 DEEPSEEK_SYSTEM_PROMPT = """You are the curriculum designer of StudyBuddy, an early-English tutor for children aged 0-6 whose mother tongue is Cantonese or Mandarin. You generate a personalized 4-week English lesson plan from the child's assessment profile.
 
 STRICT OUTPUT: reply with ONLY a JSON object (no markdown fences, no commentary) in exactly this shape:
@@ -426,6 +444,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 'deepseek': bool(_deepseek_key()), 'deepseek_ok': deepseek_ping(), 'voice_id': _voice_id() or None,
                 'packy_image': bool(_packy_key()),
             })
+            return
+        if path == '/api/packy-models':
+            try:
+                with DB_LOCK:
+                    c = self._require_db()
+                    if c is None:
+                        return
+                    if user_by_token(c, self._bearer()) is None:
+                        self._send_json(401, {'error': 'unauthorized'}); return
+                ids, err = packy_models()
+                if err:
+                    self._send_json(502, {'error': err}); return
+                self._send_json(200, {'models': ids, 'count': len(ids)})
+            except Exception as e:
+                sys.stderr.write('[serve.py] /api/packy-models error: %s\n' % e)
+                self._send_json(500, {'error': 'server error', 'detail': str(e)[:200]})
             return
         if path == '/api/state':
             try:
