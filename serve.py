@@ -159,7 +159,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(body)
             return
         if path == '/healthz':
-            self._send_json(200, {'ok': True, 'db': bool(DB_URL)})
+            host = urllib.parse.urlparse(DB_URL).hostname if DB_URL else None
+            self._send_json(200, {'ok': True, 'db': bool(DB_URL), 'db_host': host})
             return
         if path == '/api/state':
             try:
