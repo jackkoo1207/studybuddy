@@ -816,8 +816,11 @@ function generateTeachingPlan(){
     dosage:(S.plan&&S.plan.dosage)||{},
     personality:(S.plan&&S.plan.personality)||{},
     content_plan:(S.plan&&S.plan.content_plan)||{}};
+  return fetchPlanAttempt(profile,2); // 2 次嘗試：DeepSeek 高負載時單次可能需 1–3 分鐘
+}
+function fetchPlanAttempt(profile,left){
   var ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
-  var timer=ctrl?setTimeout(function(){ctrl.abort();},240000):null; // 240s 上限：DeepSeek 高負載時實測需 ~3 分鐘；絕不卡死
+  var timer=ctrl?setTimeout(function(){ctrl.abort();},200000):null; // 200s/次；絕不卡死
   return apiFetch('POST','/api/generate-plan',profile,ctrl).then(function(res){
     if(!res.ok)throw new Error((res.j&&res.j.error)||'generate-plan failed');
     var p=res.j.plan;
@@ -825,7 +828,8 @@ function generateTeachingPlan(){
     S.teachingPlan=p; S.plan_source=res.j.source||'deepseek';
     S.schedule={current_week:0,current_lesson:0,completed:[]};
     return p;
-  }).catch(function(){
+  }).catch(function(err){
+    if(left>1)return fetchPlanAttempt(profile,left-1); // 重試一次再退回本地版
     generateTeachingPlanLocal();   // 伺服器／DeepSeek 不可用 → 本地規則版
     S.plan_source='local';
     return S.teachingPlan;
@@ -833,7 +837,7 @@ function generateTeachingPlan(){
 }
 function regeneratePlan(){
   var btn=document.getElementById('btnRegen');
-  if(btn){btn.disabled=true;btn.textContent='⏳ 正在生成（DeepSeek 高負載時最長約 4 分鐘）…';}
+  if(btn){btn.disabled=true;btn.textContent='⏳ 正在生成（DeepSeek 高負載時最多約 6 分鐘，會自動重試）…';}
   var oldSched=S.schedule;                 // 保留課堂進度：重生成不重設
   generateTeachingPlan().then(function(){
     S.schedule=oldSched||S.schedule;

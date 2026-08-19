@@ -154,7 +154,8 @@ RULES:
 8. Week focuses must be distinct and progressive: weeks 1-3 build skills toward the goal, week 4 is 綜合複習＋升級預覽 (review + upgrade preview).
 9. Write focus/activity/how/goal in Traditional Chinese; words in English.
 10. The child's mistakes list may be empty — never invent mistakes. If mistakes exist, weave one corrective mini-step into week 1.
-11. Never output anything outside the JSON object."""
+11. Never output anything outside the JSON object.
+12. BE CONCISE (parents are busy): focus <= 25 chars, activity <= 18 chars, how <= 30 chars, goal <= 16 chars, words <= 4 items. Whole response under 1400 Chinese characters. No filler, no bullets inside fields."""
 
 def generate_plan_with_deepseek(profile):
     key = _deepseek_key()
