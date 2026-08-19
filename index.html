@@ -180,12 +180,10 @@
       <h3>目標與約束</h3>
       <label>G1 最希望優先提升</label>
       <div class="opt" data-name="goal">
-        <span class="chip" data-v="聽力理解">聽力理解</span>
-        <span class="chip" data-v="口語表達">口語表達</span>
-        <span class="chip" data-v="詞彙量">詞彙量</span>
-        <span class="chip" data-v="語音意識">語音意識(Phonics)</span>
-        <span class="chip" data-v="讀寫預備">讀寫預備</span>
-        <span class="chip" data-v="溝通自信">整體溝通自信</span>
+        <span class="chip" data-v="視覺">視覺（Vision）</span>
+        <span class="chip" data-v="聽覺">聽覺（Hearing）</span>
+        <span class="chip" data-v="閱讀">閱讀（Reading）</span>
+        <span class="chip" data-v="拼寫">拼寫（Spelling）</span>
       </div>
       <label>G2 每週練習頻率</label>
       <div class="opt" data-name="freq">
@@ -602,7 +600,8 @@ function computeAssessment(){
     safety:{ok:engReady,notes:[engReady?"已開啟對話（數字人互動）":"未滿 3 歲 / 尚未開口：僅聲音暴露，不開數字人對話","螢幕模式："+dos.mode]},
     parent_tip:"寶寶是"+ARCH_ZH[per.primary]+"，建議依其性格調整互動節奏。"
   };
-  S.level=lvl; S.goal=S.goal||"溝通自信";
+  S.level=lvl;
+  if(S.goal!=="視覺"&&S.goal!=="聽覺"&&S.goal!=="閱讀"&&S.goal!=="拼寫")S.goal=""; // G1 只取四維度；舊值/未選 → 平衡
   return true;
 }
 function submitAssessment(){

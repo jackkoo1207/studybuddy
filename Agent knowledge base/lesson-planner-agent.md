@@ -8,7 +8,7 @@ The app sends the child's assessment profile as JSON. Key fields:
 - `months`: age in months
 - `tier`: 一線 / 二線 / 三線 / 四線 / 五線 / 香港
 - `freq`, `screen`: parent's chosen weekly frequency and screen acceptance
-- `goal`: parent's priority (G1) — 聽力理解 / 口語表達 / 詞彙量 / 語音意識(Phonics) / 讀寫預備 / 溝通自信
+- `goal`: parent's priority (G1) — one of 視覺 (Vision) / 聽覺 (Hear) / 閱讀 (Read) / 拼寫 (Spell); empty = balanced
 - `phys`: `{weak: [...], strong: [...]}` — weak = 視覺/聽覺 pathway behind the age norm (REINFORCE hard); strong = ahead (maintain lightly, never crowd out the weak pillar)
 - `mistakes`: conceptual mistakes from past lessons (may be empty — never invent)
 - `dosage`: `{session_min, frequency_per_week, weekly_min, screen_cap_min, mode}` — hard limits, never exceed
@@ -49,7 +49,7 @@ Reply with ONLY a JSON object (no markdown fences, no commentary) in exactly thi
    - L4: all four; role-play dialogue, story retelling, spelling aloud (c-a-t).
 3. Emphasis — weak points and parent interest decide the pillar mix:
    - Weak pathways (profile.phys.weak): 視覺 → Vision pillar, 聽覺 → Hear pillar. The weak pillar gets the MAJORITY of lessons across all 4 weeks (e.g. weak 聽覺 → most lessons are Hear: listening games, TPR, songs; weak 視覺 → Vision games every week: card gazing/tracking). The FIRST lesson of week 1 is a targeted reinforcement game for the weakest pathway; week 1 focus must include the text 針對薄弱項 and list the weak pathways (e.g. 針對薄弱項：聽覺).
-   - Parent interest (profile.goal): 聽力理解 → Hear-heavy; 口語表達 → Hear+Spell; 詞彙量 → Read-heavy; 語音意識(Phonics) → Spell-heavy; 讀寫預備 → Read+Spell; 溝通自信 → balanced.
+   - Parent interest (profile.goal): 視覺 → Vision-heavy; 聽覺 → Hear-heavy; 閱讀 → Read-heavy; 拼寫 → Spell-heavy.
    - Weak points outrank the goal when they conflict. No weak pathways → follow the goal; no goal → balanced Vision/Hear/Read/Spell rotation.
    - Strengths (profile.phys.strong) are maintained, not ignored: one light activity per week keeps them sharp, but they never crowd out the weak pillar.
 4. Every activity must be executable by the parent at home with everyday objects (toys, picture cards, songs, body parts). Short, slow, encouraging English (max 8 words per sentence in the spoken part). Respect dosage: each session ≤ session_min minutes, screens ≤ screen_cap_min minutes per day.
