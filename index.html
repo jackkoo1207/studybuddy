@@ -294,13 +294,13 @@
       <!-- TAB: CHAT -->
       <div id="tab-chat" class="hidden">
         <h2>數字人對話（Chatbot）</h2>
-        <p class="sub">原型以規則腳本模擬；真實上線時 turns[].en 由 ElevenLabs / Simli 唸出（強模型路由）。</p>
+        <p class="sub">對話內容依問卷答案生成（等級 L + 目標詞）；真實上線由 ElevenLabs Agent 生成並以語音唸出。</p>
         <div class="chat" id="chatBox"></div>
         <div class="row">
           <input type="text" id="chatIn" placeholder="輸入寶寶的回應（模擬）…" style="flex:1" />
           <button onclick="sendChat()">送出</button>
         </div>
-        <div class="note">語音耦合：孩子拼讀 aloud（Spell）→ 走強模型；本原型以文字模擬。</div>
+        <div class="note">語音耦合：孩子拼讀 aloud（Spell）→ 由 ElevenLabs Agent 語音辨識接收並口語回饋；本原型以文字模擬。</div>
       </div>
 
       <!-- TAB: MISTAKE -->
@@ -519,11 +519,81 @@ function lessonActivities(level,goal){
   };
   return (T[level]||T.L2).map(function(a){ return {pillar:a[0],text:a[1]}; });
 }
-var MISTAKES=[
-  {c:"b / p 首音混淆",pillar:"Hear+Spell",drill:"Phonics 首音覺察遊戲（b-b-ball / p-p-pig）"},
-  {c:"字形誤認（b / d 反轉）",pillar:"Read",drill:"大字卡定向對比＋手部描寫"},
-  {c:"中英混用（中英文詞混說）",pillar:"Hear+Read",drill:"情境分隔：英文時間只說英文"}
-];
+var MISTAKES=[]; // 由問卷作答動態生成（buildMistakes）
+
+/* ---- 由問卷答案動態生成的內容（不再硬編碼示範資料） ---- */
+function itemScore(k){
+  var el=document.getElementById(k); if(!el)return 2;
+  var map={"經常":3,"有時":2,"很少":1,"從不":0};
+  var mEA5={"5 個以上":3,"3–4 個":2,"1–2 個":1,"不會":0};
+  var mEB1={"能完整回答":3,"能說一兩個字":2,"只會點頭或搖頭":1,"沒反應":0};
+  var mEB3={"能唱完整首":3,"能跟讀幾句":2,"只會幾個字":1,"不會":0};
+  var mEB6={"20 個以上":3,"10–19 個":2,"5–9 個":1,"5 個以下":0};
+  var m = k==='EA5'?mEA5 : k==='EB1'?mEB1 : k==='EB3'?mEB3 : k==='EB6'?mEB6 : map;
+  return m[el.value]||0;
+}
+function buildMistakes(lvl, phys){
+  var ms=[];
+  function add(c,p,dr){ms.push({c:c,pillar:p,drill:dr});}
+  if(lvl==='L0') add('聲音暴露期：以累積語音輸入為主','Hear','每日兒歌 5 分鐘＋親子律動（尚無概念性錯誤）');
+  if(itemScore('EB5')<2) add('b/p 首音混淆','Hear+Spell','Phonics 首音覺察遊戲（b-b-ball / p-p-pig）');
+  if(itemScore('EB6')<2) add('詞彙量不足','Read','圖卡配對＋實物命名（每天 5 個新詞）');
+  if(itemScore('EB1')<2||itemScore('EA3')<2) add('簡單問答反應弱','Hear','TPR 指令＋What is this 問答練習');
+  if(itemScore('EB3')<2||itemScore('EA2')<2) add('跟讀／兒歌輸出弱','Spell','兒歌跟唱＋字母音跟說');
+  if(itemScore('EB4')<2) add('字形識別待加強','Read','大字卡定向對比＋描寫練習');
+  if(phys && phys.weak.indexOf('語言')>=0) add('口語表達待加強','Hear+Spell','親子對話＋數字人簡單問答');
+  if(phys && phys.weak.indexOf('手部靈活度')>=0) add('握筆／精細動作預備','Read','拼圖＋手指遊戲＋握筆描畫');
+  if(!ms.length) add('暫無明顯概念性錯誤','Hear','維持現有節奏，每週複習目標詞');
+  return ms;
+}
+var NEXT_STEPS={"L0":["聲音暴露：每日兒歌 5 分鐘","親子律動：Clap your hands"],
+  "L1":["TPR 指令：Touch your nose","實物命名：ball / dog"],
+  "L2":["兒歌跟唱：Twinkle Twinkle","圖卡配對：cat / dog"],
+  "L3":["數字人問答：What is this?","Phonics：b-b-ball 首音"],
+  "L4":["角色扮演：At the park","故事複述：看圖說故事"]};
+function buildProgress(lvl, phys){
+  var mastered=[], items=[['EA1','listening to songs'],['EA2','actions to songs'],['EA3','following instructions'],
+    ['EA4','imitating sounds'],['EA5','picture recognition'],['EB1','answering questions'],['EB2','expressing needs'],
+    ['EB3','singing'],['EB4','letter shapes'],['EB5','first sounds'],['EB6','vocabulary'],['EB7','conversation']];
+  items.forEach(function(x){ if(itemScore(x[0])>=3) mastered.push(x[1]); });
+  function avg(arr){ return arr.reduce(function(a,b){return a+b;},0)/arr.length; }
+  function pill(v){ return v>=2.5?'ok':(v>=1.5?'building':'early'); }
+  return {
+    mastered_topics: mastered,
+    recurring_mistakes: buildMistakes(lvl, phys).map(function(m){
+      return {concept:m.c, since:new Date().toISOString().slice(0,10), pillar:m.pillar, drill:m.drill};
+    }),
+    current_level: lvl,
+    pillars: {hear:pill(avg([itemScore('EA1'),itemScore('EA2'),itemScore('EA3'),itemScore('EB1'),itemScore('EB2'),itemScore('EB3'),itemScore('EB7')])),
+              read:pill(avg([itemScore('EA5'),itemScore('EB4'),itemScore('EB6')])),
+              spell:pill(avg([itemScore('EA4'),itemScore('EB3'),itemScore('EB5')]))},
+    next_steps: NEXT_STEPS[lvl]||NEXT_STEPS.L2
+  };
+}
+function buildScript(lvl){
+  var w=CONTENT_WORDS[lvl]||["cat","dog","run"], w1=w[0], w2=w[1]||w[0];
+  var T={
+    L0:[["Hello baby! Listen: la la la! 🎵","兒歌節奏啟動（聲音暴露）"],
+        ["Can you clap? Clap, clap!","TPR：拍手"],
+        ["Good! Now wave bye-bye! 👋","TPR：揮手結束"]],
+    L1:[["Hello! What is this? 👀","指物提問（實物命名）"],
+        ["It's a "+w1+". Say: "+w1+"!","跟讀目標詞 "+w1],
+        ["Great! Touch your nose!","TPR：Touch your nose"]],
+    L2:[["Hi! Let's sing: Twinkle, twinkle! ⭐","兒歌跟唱"],
+        ["What color? It's red!","顏色詞彙"],
+        ["Can you say: "+w1+" and "+w2+"?","跟讀目標詞"]],
+    L3:[["Hello! Today: "+w1+" and "+w2+"!","主題詞彙引入"],
+        ["What is this? It's a "+w1+"!","What is this 問答"],
+        ["Say it with me: "+w1+", "+w1+"!","跟讀強化"],
+        ["Can you spell: "+w1+"?","Phonics 拼讀"]],
+    L4:[["Hi! Let's talk about the park! 🌳","主題導入"],
+        ["What do you see? I see a "+w1+"!","What do you see 問答"],
+        ["Now you say: I see a "+w2+"!","句型輸出"],
+        ["Spell "+w1+": "+w1.split('').join(' - ')+"!","拼讀輸出"],
+        ["Amazing job today! 🎉","鼓勵"]]
+  };
+  return (T[lvl]||T.L2).map(function(t){return {en:t[0],zh:t[1]};});
+}
 
 /* ---- 六通路發展評估（Doman 七階段，依月齡動態出題，對標 questionnaires.md 第一部分） ---- */
 var SCALE=[{v:0,l:'0 尚未出現'},{v:1,l:'1 偶爾'},{v:2,l:'2 經常'},{v:3,l:'3 穩定'}];
@@ -631,6 +701,10 @@ function submitAssessment(){
   if(!S.months){alert("請先填寫寶寶出生日期");return;}
   var env=envLevel(), lvl=englishLevel(), per=inferPersonality(), tier=S.tier||"香港";
   S.phys=physAssessment();
+  S.mistakes=buildMistakes(lvl,S.phys);
+  S.progress=buildProgress(lvl,S.phys);
+  S.script=buildScript(lvl);
+  ci=0;
   var dos=computeDosage(lvl,S.freq||"不確定",S.screen||"適度使用",tier);
   var bonus={"1線":0.3,"2線":0.2,"3線":0.1,"4線":-0.2,"5線":-0.2,"香港":0.2}[tier]||0;
   var effEnv=Math.min(3,Math.max(0,env+bonus)).toFixed(1);
@@ -674,11 +748,12 @@ function renderPlan(){
     return '<div class="act"><span class="dot '+a.pillar.toLowerCase()+'"></span>'
       +'<div><span class="pill '+a.pillar.toLowerCase()+'">'+a.pillar+'</span> '+a.text+'</div></div>';
   }).join('');
+  var pr=S.progress;
   document.getElementById('progressKV').innerHTML=
-    '<b>已掌握</b><div><span class="pill">colors</span><span class="pill">animals</span></div>'+
-    '<b>常錯</b><div>b/p 首音混淆（Hear+Spell）</div>'+
-    '<b>三支柱</b><div><span class="pill hear">Hear · ok</span><span class="pill read">Read · building</span><span class="pill spell">Spell · early</span></div>'+
-    '<b>下一步</b><div>role-play: at the park → story retell</div>';
+    '<b>已掌握</b><div>'+(pr&&pr.mastered_topics.length?pr.mastered_topics.map(function(t){return '<span class="pill">'+t+'</span>';}).join(''):'—')+'</div>'+
+    '<b>常錯</b><div>'+(pr&&pr.recurring_mistakes.length?pr.recurring_mistakes.map(function(m){return m.concept+'（'+m.pillar+'）';}).join('；'):'—')+'</div>'+
+    '<b>三支柱</b><div><span class="pill hear">Hear · '+(pr?pr.pillars.hear:'—')+'</span><span class="pill read">Read · '+(pr?pr.pillars.read:'—')+'</span><span class="pill spell">Spell · '+(pr?pr.pillars.spell:'—')+'</span></div>'+
+    '<b>下一步</b><div>'+(pr?pr.next_steps.join(' → '):'—')+'</div>';
   if(S.phys){
     var ph=S.phys;
     document.getElementById('physKV').innerHTML=
@@ -693,8 +768,8 @@ function renderPlan(){
       '<b>優勢項</b><div>'+(ph.strong.length?ph.strong.join('、'):'—')+'</div>';
   }
   document.getElementById('routingNote').innerHTML=
-    '模型路由（見 Agent.md §8.1，語音為準）：評估/課程/Avatar → <span class="pill deep">DeepSeek</span>（文字通道）；'
-    +'英語對話腳本 → <span class="pill strong">強模型</span>（turns 經語音唸出）。本原型以規則兜底，不呼叫任何 LLM。';
+    '內容生成（見 Agent.md §8.1）：評估／課程／Avatar 配置由規則庫或同一 agent 內部完成；'
+    +'英語對話與語音統一由 <span class="pill strong">ElevenLabs Agent</span>（生成＋TTS 一體）處理。本原型以規則引擎模擬，不呼叫外部服務。';
 }
 function pillarClass(pillar){
   if(pillar.toLowerCase().indexOf('hear')>=0)return 'hear';
@@ -702,9 +777,10 @@ function pillarClass(pillar){
   return 'spell';
 }
 function renderMistakes(){
-  document.getElementById('mistakeList').innerHTML=MISTAKES.map(function(m){
+  var ms=S.mistakes||MISTAKES;
+  document.getElementById('mistakeList').innerHTML=(ms.length?ms.map(function(m){
     return '<div class="mistake"><b>'+m.c+'</b> · 支柱：<span class="pill '+pillarClass(m.pillar)+'">'+m.pillar+'</span><br>練習：<span class="pill">'+m.drill+'</span></div>';
-  }).join('');
+  }).join(''):'<div class="note">暫無記錄。</div>');
 }
 function renderSched(){
   var d=S.plan.dosage;
@@ -719,13 +795,7 @@ function renderSched(){
   document.getElementById('schedGrid').innerHTML=html;
 }
 
-/* ---- Chatbot（規則腳本） ---- */
-var SCRIPT=[
-  {en:"Hello! What is your name?",zh:"打招呼，問名字"},
-  {en:"Great! Can you say: cat?",zh:"請寶寶說 cat"},
-  {en:"Good job! Now spell: c-a-t",zh:"請寶寶拼出 c-a-t（Spell 互動輸入）"},
-  {en:"Perfect! You did it!",zh:"鼓勵"}
-];
+/* ---- Chatbot（依等級動態生成，S.script） ---- */
 var ci=0;
 function pushChat(who,text){
   var b=document.getElementById('chatBox');
@@ -736,8 +806,9 @@ function sendChat(){
   var v=document.getElementById('chatIn').value.trim();
   if(!v)return;
   pushChat(S.baby,v); document.getElementById('chatIn').value="";
-  if(ci<SCRIPT.length){
-    setTimeout(function(){ pushChat('StudyBuddy', SCRIPT[ci].en+' <span style="color:#6b7686">('+SCRIPT[ci].zh+')</span>'); ci++; }, 300);
+  var sc=S.script||[];
+  if(ci<sc.length){
+    setTimeout(function(){ pushChat('StudyBuddy', sc[ci].en+' <span style="color:#6b7686">('+sc[ci].zh+')</span>'); ci++; }, 300);
   }else{
     pushChat('StudyBuddy','Wow! 你真棒 🎉 <span style="color:#6b7686">(示範結束)</span>');
   }
