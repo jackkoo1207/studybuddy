@@ -737,7 +737,7 @@ function renderPlan(){
   document.getElementById('planTitle').textContent=(S.baby||'寶寶')+' 的教學計畫';
   var genNote = S.generating
     ? '<div class="note" style="border-color:#8ecae6;background:#f0f8ff">⏳ AI 正在生成新計畫…（DeepSeek，約 1–3 分鐘，完成後會自動更新本頁）</div>'
-    : ((S.plan_source==='local') ? '<div class="note">⚠️ DeepSeek 暫時無法連線，此計畫為本地規則版。點「重新生成（DeepSeek）」重試即可，無需重填問卷。</div>' : '');
+    : ((S.plan_source==='local') ? '<div class="note">⚠️ DeepSeek 暫時無法連線，此計畫為本地規則版。已開啟自動升級：登入後會自動重試，完成即覆蓋，無需重填問卷。</div>' : '');
   document.getElementById('planSub').innerHTML=
     genNote+
     '英語等級 <span class="pill strong">'+lvl+'</span> '+LEVEL_NAME[lvl]
