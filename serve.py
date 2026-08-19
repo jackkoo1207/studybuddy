@@ -9,13 +9,24 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 AGENT_ID = 'agent_0801m0c2cy4sftabmmjhd9bn02vp'
 PORT = int(os.environ.get('PORT') or os.environ.get('SB_PORT') or 8123)
 
+def _env_api_key():
+    # 精確名稱優先
+    for name in ('ELEVENLABS_API_KEY', 'ElEVENLABS_TOKEN', 'ELEVENLABS_TOKEN', 'ELEVANLABS_API_KEY'):
+        v = os.environ.get(name, '').strip()
+        if v:
+            return v
+    # 容錯：任何含 ELEVENLABS／ELEVANLABS 且含 KEY／TOKEN 的變數（大小寫不拘）
+    for k, v in os.environ.items():
+        ku = k.upper()
+        if ('ELEVENLABS' in ku or 'ELEVANLABS' in ku) and ('KEY' in ku or 'TOKEN' in ku):
+            v = v.strip()
+            if v:
+                return v
+    return ''
+
 def load_config():
     # Railway：從環境變數讀（伺服器端，不下載、不入 git）；支援多種命名
-    key = ''
-    for name in ('ELEVENLABS_API_KEY', 'ElEVENLABS_TOKEN', 'ELEVENLABS_TOKEN'):
-        key = os.environ.get(name, '').strip()
-        if key:
-            break
+    key = _env_api_key()
     # 本地：從 .env 檔讀
     if not key:
         env_path = os.path.join(ROOT, '.env')
