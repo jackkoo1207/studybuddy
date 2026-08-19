@@ -140,7 +140,7 @@
   <section id="view-questionnaire" class="hidden">
     <div class="card">
       <h2>寶寶發展問卷</h2>
-      <p class="sub">四維度評估（依月齡動態出題）：視覺 ＋ 聽覺（發展通路）＋ 閱讀 ＋ 拼寫（能力階梯），輔以英語環境與目標，一次生成 4 週個人化計畫。</p>
+      <p class="sub">四維度評估：視覺 ＋ 聽覺（發展通路）＋ 閱讀 ＋ 拼寫（能力階梯），輔以英語環境與目標，一次生成 4 週個人化計畫。</p>
 
       <h3>寶寶資料（選填）</h3>
       <label>家長稱呼</label>
@@ -173,8 +173,8 @@
       <label>是否常聽到標準英語發音</label>
       <select id="E4"><option>每天</option><option>每週數次</option><option>偶爾</option><option>從未</option></select>
 
-      <h3>四維度評估（依月齡動態出題）</h3>
-      <div class="note">視覺／聽覺＝發展通路（顯示生理階段 ±1）；閱讀／拼寫＝能力階梯（由第一階段起顯示，未學過不算落後）。選項：0 尚未出現 ｜ 1 偶爾 ｜ 2 經常 ｜ 3 穩定。</div>
+      <h3>四維度評估</h3>
+      <div class="note">四個維度均顯示全部 1–7 階段題目：視覺／聽覺＝發展通路，閱讀／拼寫＝能力階梯（未學過不算落後）。選項：0 尚未出現 ｜ 1 偶爾 ｜ 2 經常 ｜ 3 穩定。</div>
       <div id="physBox"></div>
 
       <h3>目標與約束</h3>
@@ -392,10 +392,10 @@ function envLevel(){
   return 2;
 }
 function stageOf(key){
-  var p=null, hi=S.physWindow?S.physWindow[1]:7;
+  var p=null, hi=7;
   PATHWAYS.forEach(function(x){ if(x.key===key)p=x; });
   if(!p)return 0;
-  var lo=p.dev?(S.physWindow?S.physWindow[0]:1):1;   // 能力階梯由第 1 階段起算
+  var lo=1;   // 全部階段皆出題，不分月齡隱藏
   var st=0;
   for(var s=1;s<=hi;s++){
     var ok=true;
@@ -498,7 +498,7 @@ function buildScript(lvl){
   return (T[lvl]||T.L2).map(function(t){return {en:t[0],zh:t[1]};});
 }
 
-/* ---- 四維度評估（視覺／聽覺＝發展通路，閱讀／拼寫＝能力階梯；依月齡動態出題） ---- */
+/* ---- 四維度評估（視覺／聽覺＝發展通路，閱讀／拼寫＝能力階梯；全部階段出題） ---- */
 var SCALE=[{v:0,l:'0 尚未出現'},{v:1,l:'1 偶爾'},{v:2,l:'2 經常'},{v:3,l:'3 穩定'}];
 var PATHWAYS=[
  {key:'visual',name:'視覺',dev:true,tag:'發展通路',questions:[
@@ -544,12 +544,9 @@ function physStageOf(months){
   return 7;
 }
 function renderPhys(){
-  var ps=physStageOf(S.months), lo=Math.max(1,ps-1), hi=Math.min(7,ps+1);
-  S.physWindow=[lo,hi];
   document.getElementById('physBox').innerHTML=PATHWAYS.map(function(p){
-    var plo=p.dev?lo:1;   // 能力階梯（閱讀/拼寫）由第一階段起顯示：未學過不設月齡下限
-    var qs=p.questions.filter(function(q){return q[1]>=plo&&q[1]<=hi;});
-    return '<h3 style="margin-top:16px">'+p.name+'（'+p.tag+' · 第 '+plo+'–'+hi+' 階段題目）</h3>'
+    var qs=p.questions;   // 全部 1–7 階段題目皆顯示，不依月齡隱藏
+    return '<h3 style="margin-top:16px">'+p.name+'（'+p.tag+'）</h3>'
       +qs.map(function(q){
         return '<label>'+q[0]+'（第 '+q[1]+' 階段）'+q[2]+'</label>'
           +'<div class="note" style="margin:4px 0 8px">👀 '+q[3]+'</div>'
