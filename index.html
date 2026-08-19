@@ -739,11 +739,11 @@ function generateTeachingPlan(){
       var src=pool[(w+i)%pool.length];
       lessons.push({day:"Day "+(i+1),pillar:src[0],activity:src[1],how:src[2]+"（每次 "+mins+" 分）",words:src[3].join("、"),goal:"強化 "+src[0]+" 支柱"});
     }
-    weeks.push({week:w,focus:"第 "+w+" 週："+t[w-1],lessons:lessons});
+    weeks.push({week:w,focus:t[w-1],lessons:lessons});
   }
   if(weak.length){
     var wm={視覺:"Read",聽覺:"Hear",觸覺:"Hear",活動能力:"Hear",語言:"Hear+Spell",手部靈活度:"Read"};
-    weeks[0].focus="第 1 週："+t[0]+"（針對薄弱項："+weak.join("、")+"）";
+    weeks[0].focus=t[0]+"（針對薄弱項："+weak.join("、")+"）";
     weeks[0].lessons[0]={day:"Day 1",pillar:wm[weak[0]]||"Hear",activity:"強化訓練："+weak[0]+"小遊戲",how:"依薄弱項安排親子小遊戲（每次 "+mins+" 分）",words:"—",goal:"補強薄弱項："+weak[0]};
   }
   S.teachingPlan={generated_at:new Date().toISOString().slice(0,10),level:lvl,weeks:weeks};
