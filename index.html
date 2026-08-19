@@ -336,6 +336,9 @@ var CLUE={explorer:["好動","坐不住","好奇","到處爬","愛跑"],
   thinker:["專注","愛拼圖","話少","自己玩"],
   sensory:["動手","愛摸","視覺強","要具體","怕抽象"]};
 var LEVEL_NAME={"L0":"Sound Exposure","L1":"Word Awareness","L2":"Phrase Builder","L3":"Early Talker","L4":"Pre-A1 Starters"};
+var CONTENT_TOPIC={"L0":"Nursery rhymes","L1":"Body & objects","L2":"Animals & colors","L3":"Animals at the park","L4":"At the park story"};
+var CONTENT_WORDS={"L0":["clap","wave"],"L1":["nose","ball"],"L2":["cat","dog","red"],"L3":["run","dog","ball","go"],"L4":["park","run","cat","dog"]};
+var CONTENT_STYLE={"L0":"聲音暴露＋律動","L1":"TPR＋實物命名","L2":"圖卡配對＋兒歌跟唱","L3":"簡單問答＋Phonics","L4":"角色扮演＋故事複述"};
 
 /* 登入：純前端 localStorage 示範（無後端、無 Firebase）。 */
 
@@ -425,7 +428,7 @@ function abilityEB(){
 /* ---- 評估計算 ---- */
 function envLevel(){
   var e1=document.getElementById('E1').value, e3=document.getElementById('E3').value, e4=document.getElementById('E4').value;
-  if(("幾乎沒有".indexOf(e1)>=0)&&e3==="很少"&&e4==="從未")return 0;
+  if(("幾乎沒有".indexOf(e1)>=0)&&(e3==="很少"||e3==="從不")&&e4==="從未")return 0;
   if(e1==="幾乎沒有"||e3==="很少"||e4==="偶爾")return 1;
   if((e1.indexOf("15")>=0||e1.indexOf("30")>=0)&&(e3==="有時"||e3==="經常")&&(e4==="每週數次"||e4==="每天"))return 2;
   if((e1.indexOf("30")>=0||e1.indexOf("1 小時")>=0)&&e3==="經常"&&e4==="每天")return 3;
@@ -610,10 +613,13 @@ function submitAssessment(){
     dos={session_min:cap,frequency_per_week:dos.frequency_per_week,weekly_min:cap*dos.frequency_per_week,mode:"exposure"};
   }
   var matrix="env"+env+" × "+lvl;
+  var screenCap= S.months<18?5:(S.months<30?10:(S.months<42?15:(S.months<54?20:30)));
+  dos.screen_cap_min=screenCap;
   S.plan={
     segment:{env_level:env,effective_env:effEnv,foundation:lvl,matrix_cell:matrix},
     personality:{primary:per.primary,secondary:"",confidence:per.confidence,from_parent_note:per.confidence>0.5},
     avatar_persona:ARCH[per.primary],
+    content_plan:{topic:CONTENT_TOPIC[lvl],target_words:CONTENT_WORDS[lvl],style:CONTENT_STYLE[lvl]},
     dosage:dos,
     safety:{ok:engReady,notes:[engReady?"已開啟對話（數字人互動）":"未滿 3 歲 / 尚未開口：僅聲音暴露，不開數字人對話","螢幕模式："+dos.mode]},
     parent_tip:"寶寶是"+ARCH_ZH[per.primary]+"，建議依其性格調整互動節奏。"
