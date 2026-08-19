@@ -1,24 +1,29 @@
-# StudyBuddy 本地伺服器：自動從 .env 讀取 ElEVENLABS_TOKEN 注入前端，
+# StudyBuddy 本地／Railway 伺服器：自動從環境變數（或 .env 檔）讀取 ElEVENLABS_TOKEN 注入前端，
 # 瀏覽器不需貼 API key、不會彈出任何輸入框。
-# 用法：python serve.py  然後開 http://localhost:8123
+# 用法：
+#   本地:    python serve.py                然後開 http://localhost:8123（讀 D:\OPC\.env）
+#   Railway: 設環境變數 ElEVENLABS_TOKEN，啟動指令 python serve.py（PORT 由 Railway 注入）
 import http.server, os, json, socketserver, sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 AGENT_ID = 'agent_0801m0c2cy4sftabmmjhd9bn02vp'
-PORT = int(os.environ.get('SB_PORT', 8123))
+PORT = int(os.environ.get('PORT') or os.environ.get('SB_PORT') or 8123)
 
 def load_config():
-    key = ''
-    env_path = os.path.join(ROOT, '.env')
-    try:
-        for line in open(env_path, encoding='utf-8'):
-            line = line.strip()
-            if line.startswith('ElEVENLABS_TOKEN='):
-                key = line.split('=', 1)[1].strip().strip('"').strip("'")
-    except FileNotFoundError:
-        pass
+    # Railway：從環境變數讀（伺服器端，不下載、不入 git）
+    key = os.environ.get('ElEVENLABS_TOKEN', '').strip()
+    # 本地：從 .env 檔讀
     if not key:
-        return 'window.ELEVENLABS_CONFIG = null; // .env 缺 ElEVENLABS_TOKEN'
+        env_path = os.path.join(ROOT, '.env')
+        try:
+            for line in open(env_path, encoding='utf-8'):
+                line = line.strip()
+                if line.startswith('ElEVENLABS_TOKEN='):
+                    key = line.split('=', 1)[1].strip().strip('"').strip("'")
+        except FileNotFoundError:
+            pass
+    if not key:
+        return 'window.ELEVENLABS_CONFIG = null; // 未設定 ElEVENLABS_TOKEN'
     cfg = {'agentId': AGENT_ID, 'apiKey': key}
     return 'window.ELEVENLABS_CONFIG = %s;' % json.dumps(cfg)
 
