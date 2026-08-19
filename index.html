@@ -1235,6 +1235,7 @@ function afterLogin(user){
       apiLogout().catch(function(){});
       API.token = null;
       try{ localStorage.removeItem("sb_token"); localStorage.removeItem("sb_user"); }catch(e){}
+      setMode("signin"); setMsg("");
       window.S = {}; window.go("login");
     });
   }
