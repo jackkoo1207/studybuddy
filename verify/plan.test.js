@@ -56,6 +56,17 @@ function fakeFetch(url, opt) {
     server.data.get(u).plan = { plan: body.plan, schedule: body.schedule || {} };
     return send(200, { ok: true });
   }
+  if (method === 'POST' && path === '/api/generate-plan') {
+    const u = user(); if (!u) return send(401, {});
+    const weak = (body.phys && body.phys.weak) || [];
+    const freq = Math.max(2, Math.min(6, ((body.dosage && body.dosage.frequency_per_week) || 3)));
+    const weeks = [1, 2, 3, 4].map(w => ({
+      week: w,
+      focus: (w === 1 && weak.length) ? '主題（針對薄弱項：' + weak.join('、') + '）' : (w === 4 ? '綜合複習＋升級預覽' : '主題' + w),
+      lessons: Array.from({ length: freq }, (_, i) => ({ day: 'Day ' + (i + 1), pillar: ['Hear', 'Read', 'Spell'][i % 3], activity: '活動' + i, how: '做法（每次 15 分）', words: 'dog、cat', goal: '目標' }))
+    }));
+    return send(200, { plan: { generated_at: '2026-08-19', level: body.level, weeks }, source: 'deepseek', model: 'fake' });
+  }
   return send(404, { error: 'not found' });
 }
 
@@ -107,7 +118,7 @@ vm.createContext(sandbox);
   sandbox.S.user = 't1';
   sandbox.S.months = 48; sandbox.S.tier = '香港'; sandbox.S.freq = '每週 3-4 次'; sandbox.S.screen = '適度使用'; sandbox.S.physWindow = [5, 7];
   Object.assign(values, WEAK_ANSWERS); setPhys(false);
-  vm.runInContext('submitAssessment();', sandbox);
+  await sandbox.submitAssessment();   // async: DeepSeek(fake) plan → render → save
   await tick();
   check('1: weak answers => L2', sandbox.S.level === 'L2');
   check('1: mistakes EMPTY (no lessons yet)', sandbox.S.mistakes.length === 0);

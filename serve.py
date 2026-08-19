@@ -7,6 +7,7 @@
 #   PORT / SB_PORT                                             監聽埠（Railway 注入 PORT）
 import http.server, os, json, socketserver, sys, re, hashlib, hmac, secrets, urllib.parse, urllib.request
 from contextlib import contextmanager
+from datetime import datetime, timezone
 
 @contextmanager
 def _cur(c):  # pg8000 cursor 不支援 with，自訂 context manager
@@ -75,6 +76,126 @@ def _env_api_key():
     except FileNotFoundError:
         pass
     return ''
+
+def _voice_id():
+    for name in ('VOICE_ID', 'ELEVENLABS_VOICE_ID', 'ELEVENLABS_DEFAULT_VOICE_ID'):
+        v = os.environ.get(name, '').strip()
+        if v:
+            return v
+    try:
+        for line in open(os.path.join(ROOT, '.env'), encoding='utf-8'):
+            line = line.strip()
+            for prefix in ('VOICE_ID=', 'ELEVENLABS_VOICE_ID='):
+                if line.startswith(prefix):
+                    v = line.split('=', 1)[1].strip().strip('"').strip("'")
+                    if v:
+                        return v
+    except FileNotFoundError:
+        pass
+    return ''
+
+def _deepseek_key():
+    v = os.environ.get('DEEPSEEK_API_KEY', '').strip()
+    if v:
+        return v
+    try:
+        for line in open(os.path.join(ROOT, '.env'), encoding='utf-8'):
+            if line.strip().startswith('DEEPSEEK_API_KEY='):
+                v = line.split('=', 1)[1].strip().strip('"').strip("'")
+                if v:
+                    return v
+    except FileNotFoundError:
+        pass
+    return ''
+
+DEEPSEEK_MODEL = os.environ.get('DEEPSEEK_MODEL', 'deepseek-v4-flash')
+
+DEEPSEEK_SYSTEM_PROMPT = """You are the curriculum designer of StudyBuddy, an early-English tutor for children aged 0-6 whose mother tongue is Cantonese or Mandarin. You generate a personalized 4-week English lesson plan from the child's assessment profile.
+
+STRICT OUTPUT: reply with ONLY a JSON object (no markdown fences, no commentary) in exactly this shape:
+{
+  "weeks": [
+    {
+      "week": 1,
+      "focus": "Chinese weekly topic title",
+      "lessons": [
+        {
+          "day": "Day 1",
+          "pillar": "Hear",
+          "activity": "short Chinese activity name",
+          "how": "short Chinese parent instructions, ending with （每次 X 分）",
+          "words": "English target words joined by 、, or — when none",
+          "goal": "short Chinese goal"
+        }
+      ]
+    }
+  ]
+}
+
+RULES:
+1. Exactly 4 weeks. Each week has exactly frequency_per_week lessons (Day 1..N from the profile's dosage.frequency_per_week, clamped 2-6).
+2. Pillars: Hear = listening exposure, Read = word/picture recognition, Spell = oral output / phonics. Choose by English level:
+   - L0 (exposure mode): ALL lessons Hear, no Spell, no words or minimal words, no screen.
+   - L1: mostly Hear + light Read; TPR commands and naming real objects.
+   - L2: Hear + Read + first Spell (echoing, letter sounds, clapping syllables).
+   - L3: all three; "What is this?" Q&A; phonics first sounds (b-b-ball).
+   - L4: all three; role-play dialogue, story retelling, spelling aloud (c-a-t).
+3. Doman weak pathways MUST be addressed: 視覺->Read, 聽覺->Hear, 觸覺->Hear, 活動能力->Hear, 語言->Hear+Spell, 手部靈活度->Read. The FIRST lesson of week 1 is a targeted reinforcement game for the weakest pathway; week 1 focus must include the text 針對薄弱項 and list the weak pathways (e.g. 針對薄弱項：聽覺、語言).
+4. Every activity must be executable by the parent at home with everyday objects (toys, picture cards, songs, body parts). Short, slow, encouraging English (max 8 words per sentence in the spoken part). Respect dosage: each session <= session_min minutes, screens <= screen_cap_min minutes per day.
+5. Target words: age/level-appropriate concrete nouns and verbs (L1: ball, dog, nose, clap; L2: cat, dog, star, twinkle; L3: what, this, bird, pig; L4: park, run, story...). 2-4 words per lesson, English, joined by 、; use — when the activity has no words (physical play / L0 exposure).
+6. Pace by personality (profile.personality.primary): cautious/sensitive children get more repetition, praise and slower steps; active/explorer children get movement and games.
+7. Follow the content_plan topic and style from the profile (e.g. topic 動物與日常用品, style 兒歌韻律 + TPR).
+8. Week focuses must be distinct and progressive: weeks 1-3 build skills toward the goal, week 4 is 綜合複習＋升級預覽 (review + upgrade preview).
+9. Write focus/activity/how/goal in Traditional Chinese; words in English.
+10. The child's mistakes list may be empty — never invent mistakes. If mistakes exist, weave one corrective mini-step into week 1.
+11. Never output anything outside the JSON object."""
+
+def generate_plan_with_deepseek(profile):
+    key = _deepseek_key()
+    if not key:
+        return None, '未設定 DEEPSEEK_API_KEY（Railway 環境變數）'
+    body = {
+        'model': DEEPSEEK_MODEL,
+        'messages': [
+            {'role': 'system', 'content': DEEPSEEK_SYSTEM_PROMPT},
+            {'role': 'user', 'content': json.dumps(profile, ensure_ascii=False)},
+        ],
+        'temperature': 0.7,
+        'response_format': {'type': 'json_object'},
+    }
+    req = urllib.request.Request(
+        'https://api.deepseek.com/chat/completions',
+        data=json.dumps(body).encode(),
+        headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
+        method='POST')
+    try:
+        r = json.loads(urllib.request.urlopen(req, timeout=90).read().decode())
+        content = r['choices'][0]['message']['content']
+        plan = json.loads(content)
+        if not plan.get('weeks') or len(plan['weeks']) != 4:
+            return None, 'DeepSeek 回傳格式不符（weeks 需 4 週）'
+        return plan, None
+    except Exception as e:
+        return None, 'DeepSeek 失敗：%s' % str(e)[:160]
+
+def apply_voice_id():
+    vid = _voice_id()
+    if not vid:
+        return None
+    key = _env_api_key()
+    if not key:
+        return None
+    req = urllib.request.Request(
+        'https://api.elevenlabs.io/v1/convai/agents/' + AGENT_ID,
+        data=json.dumps({'conversation_config': {'tts': {'voice_id': vid}}}).encode(),
+        headers={'xi-api-key': key, 'Content-Type': 'application/json'},
+        method='PATCH')
+    try:
+        urllib.request.urlopen(req, timeout=25)
+        return vid
+    except Exception as e:
+        sys.stderr.write('[serve.py] voice PATCH failed: %s\n' % e)
+        return None
 
 def make_convai_signed_url():
     key = _env_api_key()
@@ -243,7 +364,24 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if err:
                 self._send_json(500, {'error': err})
                 return
-            self._send_json(200, {'url': url})
+            self._send_json(200, {'url': url, 'voice_id': _voice_id() or None})
+            return
+        if path == '/api/generate-plan':
+            c = self._require_db()
+            if c is None:
+                return
+            uid = user_by_token(c, self._bearer())
+            if uid is None:
+                self._send_json(401, {'error': 'unauthorized'}); return
+            body = self._read_json()
+            if not isinstance(body, dict):
+                self._send_json(400, {'error': 'bad request'}); return
+            plan, err = generate_plan_with_deepseek(body)
+            if err:
+                self._send_json(502, {'error': err}); return
+            plan['generated_at'] = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+            plan['level'] = body.get('level') or ''
+            self._send_json(200, {'plan': plan, 'source': 'deepseek', 'model': DEEPSEEK_MODEL})
             return
         c = self._require_db()
         if c is None:
@@ -359,6 +497,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         sys.stderr.write('[serve.py] %s\n' % (fmt % args))
 
 if __name__ == '__main__':
+    vid = apply_voice_id()
+    if vid:
+        print('Voice ID applied to agent:', vid)
     socketserver.TCPServer.allow_reuse_address = True
     with socketserver.TCPServer(('', PORT), Handler) as httpd:
         print('StudyBuddy: http://localhost:%d  (db: %s)' % (PORT, 'configured' if DB_URL else 'NOT configured — static only'))

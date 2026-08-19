@@ -751,15 +751,16 @@ function computeAssessment(){
 }
 function submitAssessment(){
   if(!computeAssessment()){ alert("請先填寫寶寶出生日期"); return; }
-  generateTeachingPlan(); // 教學計畫：首次註冊生成一次；重填問卷視為重新生成
-  renderPlan(); renderMistakes(); renderSched();
-  go('dash'); tab('plan');
-  saveAnswers(); saveSnapshot(); savePlan(); // 立即持久化（PostgreSQL）
+  generateTeachingPlan().then(function(){ // DeepSeek 生成；失敗自動退回本地規則版
+    renderPlan(); renderMistakes(); renderSched();
+    go('dash'); tab('plan');
+    saveAnswers(); saveSnapshot(); savePlan(); // 立即持久化（PostgreSQL）
+  });
 }
 
 /* ---- 渲染 ---- */
-/* ---- 教學計畫：首次註冊生成一次，存入 SQLite，登入不重算 ---- */
-function generateTeachingPlan(){
+/* ---- 教學計畫：DeepSeek 依寶寶資料生成（伺服器端）；失敗時退回本地規則版 ---- */
+function generateTeachingPlanLocal(){
   var lvl=S.level, dos=S.plan.dosage, weak=(S.phys&&S.phys.weak)||[];
   var freq=Math.max(2,Math.min(6,dos.frequency_per_week)), mins=dos.session_min;
   var themes={
@@ -802,6 +803,27 @@ function generateTeachingPlan(){
   }
   S.teachingPlan={generated_at:new Date().toISOString().slice(0,10),level:lvl,weeks:weeks};
   S.schedule={current_week:0,current_lesson:0,completed:[]};
+}
+function generateTeachingPlan(){
+  if(!S.user)return Promise.resolve(generateTeachingPlanLocal());
+  var profile={level:S.level,months:S.months,tier:S.tier,freq:S.freq,screen:S.screen,goal:S.goal,
+    phys:(S.phys?{weak:S.phys.weak||[],strong:S.phys.strong||[]}:{weak:[],strong:[]}),
+    mistakes:S.mistakes||[],
+    dosage:(S.plan&&S.plan.dosage)||{},
+    personality:(S.plan&&S.plan.personality)||{},
+    content_plan:(S.plan&&S.plan.content_plan)||{}};
+  return apiFetch('POST','/api/generate-plan',profile).then(function(res){
+    if(!res.ok)throw new Error((res.j&&res.j.error)||'generate-plan failed');
+    var p=res.j.plan;
+    if(!p||!p.weeks||p.weeks.length!==4)throw new Error('bad plan from server');
+    S.teachingPlan=p; S.plan_source=res.j.source||'deepseek';
+    S.schedule={current_week:0,current_lesson:0,completed:[]};
+    return p;
+  }).catch(function(){
+    generateTeachingPlanLocal();   // 伺服器／DeepSeek 不可用 → 本地規則版
+    S.plan_source='local';
+    return S.teachingPlan;
+  });
 }
 function renderPlan(){
   var lvl=S.level, dos=S.plan&&S.plan.dosage, tp=S.teachingPlan;
@@ -950,13 +972,13 @@ function maybeShowPicture(text){
 
 /* ---- ElevenLabs Convai 語音課堂（Agent.md §8.3；key 在伺服器端，瀏覽器用簽名 URL） ---- */
 var AGENT_ID='agent_0801m0c2cy4sftabmmjhd9bn02vp';
-var voice={conn:null,ctx:null,stream:null,queue:0,pendingText:null,spkTimer:null};
+var voice={conn:null,ctx:null,stream:null,queue:0,pendingText:null,spkTimer:null,vid:null};
 var PROTOCOL_TEXT="LESSON PROTOCOL (plan first, then execute): 1) output a LessonPlan JSON: mistakes_recap 3 steps (enabled=false if no mistakes), yesterday_recap 2 steps, today_lesson 10 steps, lesson_recap 1 step. 2) execute step by step, never skip segments (except disabled mistakes_recap). Speak short slow encouraging English (max 8 words/sentence). Add a brief Traditional-Chinese/Cantonese hint for the parent only when helpful.";
 function setVoiceStatus(t){ var e=document.getElementById('voiceStatus'); if(e)e.textContent=t; }
 function getConvaiUrl(){
   return apiFetch('POST','/api/convai-url').then(function(r){
     if(!r.ok)throw new Error((r.j&&r.j.error)||'取得語音授權失敗');
-    return r.j.url;
+    return r.j;
   });
 }
 function setMicLive(on){
@@ -969,9 +991,10 @@ function toggleVoiceLesson(){
   if(!S.user){ setVoiceStatus('請先登入'); return; }
   var prompt=PROTOCOL_TEXT+'\n\nLESSON CONTEXT (JSON):\n'+JSON.stringify(buildAgentContext(),null,2)+'\n\nTeach the child step by step in English. Use the draw_on_whiteboard tool to write every new word on the whiteboard before speaking it.';
   setVoiceStatus('取得授權…'); setMicLive(true);
-  getConvaiUrl().then(function(url){
+  getConvaiUrl().then(function(cfg){
+    voice.vid = cfg.voice_id || null;
     setVoiceStatus('連接中…');
-    openConvai(url, prompt);
+    openConvai(cfg.url, prompt);
   }).catch(function(err){
     setMicLive(false);
     setVoiceStatus('授權失敗：'+(err&&err.message?err.message:err));
@@ -988,7 +1011,9 @@ function openConvai(signedUrl, prompt){
     voice.conn=ws;
     var gotMeta=false;
     ws.onopen=function(){
-      ws.send(JSON.stringify({type:'conversation_initiation_client_data',conversation_config_override:{agent:{dynamic_variables:{lesson_context:prompt}}}}));
+      var ov={agent:{dynamic_variables:{lesson_context:prompt}}};
+      if(voice.vid)ov.tts={voice_id:voice.vid}; // Railway VOICE_ID 覆寫
+      ws.send(JSON.stringify({type:'conversation_initiation_client_data',conversation_config_override:ov}));
       if(voice.pendingText){ var t=voice.pendingText; voice.pendingText=null; try{ ws.send(JSON.stringify({type:'user_message',text:t})); }catch(e){} }
       startMic();
     };
@@ -1184,12 +1209,15 @@ function afterLogin(user){
       if(saved){
         S.teachingPlan=saved.plan;            // 計畫只生成一次：登入直接沿用
         S.schedule=saved.schedule||{current_week:0,current_lesson:0,completed:[]};
-      }else{
-        generateTeachingPlan(); savePlan();   // 舊帳號無計畫 → 首次生成
+        renderPlan(); renderMistakes(); renderSched();
+        go('dash'); tab('plan');
+        return;
       }
-      renderPlan(); renderMistakes(); renderSched();
-      go('dash'); tab('plan');
-      return;
+      return generateTeachingPlan().then(function(){ // 舊帳號無計畫 → 生成並保存
+        savePlan();
+        renderPlan(); renderMistakes(); renderSched();
+        go('dash'); tab('plan');
+      });
     }
     go('questionnaire');                      // 新帳號：填問卷
   }).catch(function(err){ go('login'); });    // 伺服器連不上 → 回登入
