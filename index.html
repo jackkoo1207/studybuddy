@@ -817,7 +817,7 @@ function generateTeachingPlan(){
     personality:(S.plan&&S.plan.personality)||{},
     content_plan:(S.plan&&S.plan.content_plan)||{}};
   var ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
-  var timer=ctrl?setTimeout(function(){ctrl.abort();},150000):null; // 150s 上限：伺服器 2 次重試 × 70s；絕不卡死
+  var timer=ctrl?setTimeout(function(){ctrl.abort();},240000):null; // 240s 上限：DeepSeek 高負載時實測需 ~3 分鐘；絕不卡死
   return apiFetch('POST','/api/generate-plan',profile,ctrl).then(function(res){
     if(!res.ok)throw new Error((res.j&&res.j.error)||'generate-plan failed');
     var p=res.j.plan;
@@ -833,7 +833,7 @@ function generateTeachingPlan(){
 }
 function regeneratePlan(){
   var btn=document.getElementById('btnRegen');
-  if(btn){btn.disabled=true;btn.textContent='⏳ 正在生成（DeepSeek 高負載時最長約 2.5 分鐘）…';}
+  if(btn){btn.disabled=true;btn.textContent='⏳ 正在生成（DeepSeek 高負載時最長約 4 分鐘）…';}
   var oldSched=S.schedule;                 // 保留課堂進度：重生成不重設
   generateTeachingPlan().then(function(){
     S.schedule=oldSched||S.schedule;
@@ -841,6 +841,18 @@ function regeneratePlan(){
     renderPlan(); renderToday(); renderSched();
   }).finally(function(){
     if(btn){btn.disabled=false;btn.textContent='🔄 重新生成（DeepSeek）';}
+  });
+}
+function autoRegenerate(){
+  // 本地規則版計畫 → 登入後背景自動升級為 DeepSeek 版（10 分鐘冷卻，不打擾使用者）
+  if(S.plan_source!=='local')return;
+  var last=0; try{last=parseInt(localStorage.getItem('sb_ds_retry')||'0',10)||0;}catch(e){}
+  if(Date.now()-last<600000)return;
+  try{localStorage.setItem('sb_ds_retry',String(Date.now()));}catch(e){}
+  var oldSched=S.schedule;
+  generateTeachingPlan().then(function(){
+    S.schedule=oldSched||S.schedule;          // 失敗時也還原：本地版不會重設課堂進度
+    if(S.plan_source==='deepseek'){ savePlan(); renderPlan(); renderToday(); renderSched(); }
   });
 }
 function renderPlan(){
@@ -1236,6 +1248,7 @@ function afterLogin(user){
         S.schedule=saved.schedule||{current_week:0,current_lesson:0,completed:[]};
         renderPlan(); renderMistakes(); renderSched();
         go('dash'); tab('plan');
+        autoRegenerate();                     // 若為本地規則版 → 背景自動升級 DeepSeek 版
         return;
       }
       return generateTeachingPlan().then(function(){ // 舊帳號無計畫 → 生成並保存

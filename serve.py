@@ -177,7 +177,7 @@ def generate_plan_with_deepseek(profile):
             headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
             method='POST')
         try:
-            r = json.loads(urllib.request.urlopen(req, timeout=70).read().decode())
+            r = json.loads(urllib.request.urlopen(req, timeout=200).read().decode())
             content = r['choices'][0]['message']['content']
             plan = json.loads(content)
             if not plan.get('weeks') or len(plan['weeks']) != 4:
