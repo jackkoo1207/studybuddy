@@ -306,7 +306,7 @@
       <!-- TAB: MISTAKE -->
       <div id="tab-mistake" class="hidden">
         <h2>常見概念性錯誤</h2>
-        <p class="sub">迷思映射到所屬支柱追蹤，便於針對性練習。</p>
+        <p class="sub">概念性錯誤在課堂練習中由 agent 觀察累積；尚未上課前此處為空白。</p>
         <div id="mistakeList"></div>
       </div>
 
@@ -519,7 +519,7 @@ function lessonActivities(level,goal){
   };
   return (T[level]||T.L2).map(function(a){ return {pillar:a[0],text:a[1]}; });
 }
-var MISTAKES=[]; // 由問卷作答動態生成（buildMistakes）
+var MISTAKES=[]; // 課堂記錄：尚未上課前保持空白（概念性錯誤需在練習中觀察累積）
 
 /* ---- 由問卷答案動態生成的內容（不再硬編碼示範資料） ---- */
 function itemScore(k){
@@ -532,20 +532,7 @@ function itemScore(k){
   var m = k==='EA5'?mEA5 : k==='EB1'?mEB1 : k==='EB3'?mEB3 : k==='EB6'?mEB6 : map;
   return m[el.value]||0;
 }
-function buildMistakes(lvl, phys){
-  var ms=[];
-  function add(c,p,dr){ms.push({c:c,pillar:p,drill:dr});}
-  if(lvl==='L0') add('聲音暴露期：以累積語音輸入為主','Hear','每日兒歌 5 分鐘＋親子律動（尚無概念性錯誤）');
-  if(itemScore('EB5')<2) add('b/p 首音混淆','Hear+Spell','Phonics 首音覺察遊戲（b-b-ball / p-p-pig）');
-  if(itemScore('EB6')<2) add('詞彙量不足','Read','圖卡配對＋實物命名（每天 5 個新詞）');
-  if(itemScore('EB1')<2||itemScore('EA3')<2) add('簡單問答反應弱','Hear','TPR 指令＋What is this 問答練習');
-  if(itemScore('EB3')<2||itemScore('EA2')<2) add('跟讀／兒歌輸出弱','Spell','兒歌跟唱＋字母音跟說');
-  if(itemScore('EB4')<2) add('字形識別待加強','Read','大字卡定向對比＋描寫練習');
-  if(phys && phys.weak.indexOf('語言')>=0) add('口語表達待加強','Hear+Spell','親子對話＋數字人簡單問答');
-  if(phys && phys.weak.indexOf('手部靈活度')>=0) add('握筆／精細動作預備','Read','拼圖＋手指遊戲＋握筆描畫');
-  if(!ms.length) add('暫無明顯概念性錯誤','Hear','維持現有節奏，每週複習目標詞');
-  return ms;
-}
+function buildMistakes(){ return []; } // 概念性錯誤需課堂練習中觀察累積；尚未上課 → 空白
 var NEXT_STEPS={"L0":["聲音暴露：每日兒歌 5 分鐘","親子律動：Clap your hands"],
   "L1":["TPR 指令：Touch your nose","實物命名：ball / dog"],
   "L2":["兒歌跟唱：Twinkle Twinkle","圖卡配對：cat / dog"],
@@ -780,7 +767,7 @@ function renderMistakes(){
   var ms=S.mistakes||MISTAKES;
   document.getElementById('mistakeList').innerHTML=(ms.length?ms.map(function(m){
     return '<div class="mistake"><b>'+m.c+'</b> · 支柱：<span class="pill '+pillarClass(m.pillar)+'">'+m.pillar+'</span><br>練習：<span class="pill">'+m.drill+'</span></div>';
-  }).join(''):'<div class="note">暫無記錄。</div>');
+  }).join(''):'<div class="note">尚未有課堂記錄 — 開始練習後，agent 會觀察並記錄常見概念性錯誤。</div>');
 }
 function renderSched(){
   var d=S.plan.dosage;
