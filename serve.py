@@ -153,12 +153,12 @@ def _packy_key():
     return ''
 
 
-def generate_image(prompt):
+def generate_image(prompt, model=None):
     """PackyAPI /v1/images/generations（OpenAI 相容）。回傳 (url_or_dataurl, err)。"""
     key = _packy_key()
     if not key:
         return None, '未設定 PACKY_CODE_API_KEY（Railway 環境變數）'
-    body = {'model': PACKY_IMAGE_MODEL, 'prompt': prompt, 'n': 1, 'size': '1024x1024'}
+    body = {'model': model or PACKY_IMAGE_MODEL, 'prompt': prompt, 'n': 1, 'size': '1024x1024'}
     req = urllib.request.Request(
         PACKY_BASE_URL.rstrip('/') + '/v1/images/generations',
         data=json.dumps(body).encode(),
@@ -498,10 +498,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(400, {'error': '缺少 prompt'}); return
             if len(prompt) > 200:
                 self._send_json(400, {'error': 'prompt 過長（≤200 字元）'}); return
-            url, err = generate_image(prompt)
+            model = (body.get('model') or '').strip()
+            if len(model) > 100:
+                self._send_json(400, {'error': 'model 名稱過長'}); return
+            url, err = generate_image(prompt, model or None)
             if err:
                 self._send_json(502, {'error': err}); return
-            self._send_json(200, {'ok': True, 'url': url, 'model': PACKY_IMAGE_MODEL})
+            self._send_json(200, {'ok': True, 'url': url, 'model': model or PACKY_IMAGE_MODEL})
             return
         if path == '/api/generate-plan':
             with DB_LOCK:
