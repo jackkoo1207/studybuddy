@@ -133,7 +133,7 @@ def _lesson_planner_prompt():
 
 
 PACKY_BASE_URL = os.environ.get('PACKY_BASE_URL', 'https://www.packyapi.ai')
-PACKY_IMAGE_MODEL = os.environ.get('PACKY_IMAGE_MODEL', 'gpt-image-1')
+PACKY_IMAGE_MODEL = os.environ.get('PACKY_IMAGE_MODEL', 'gpt-image-2')
 
 
 def _packy_key():
