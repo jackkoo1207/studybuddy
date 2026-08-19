@@ -6,3 +6,4 @@ verify/node_modules/
 elevenlabs_config.js
 
 LemmonSlice.md
+__pycache__/

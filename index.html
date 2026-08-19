@@ -139,7 +139,7 @@
   <section id="view-questionnaire" class="hidden">
     <div class="card">
       <h2>寶寶發展問卷</h2>
-      <p class="sub">完整問卷（questionnaires.md 全題）：背景資訊 ＋ 六通路發展評估（依月齡動態出題）＋ 英語環境與能力。</p>
+      <p class="sub">四維度評估（依月齡動態出題）：視覺 ＋ 聽覺（發展通路）＋ 閱讀 ＋ 拼寫（能力階梯），輔以英語環境與目標，一次生成 4 週個人化計畫。</p>
 
       <h3>寶寶資料（選填）</h3>
       <label>家長稱呼</label>
@@ -147,42 +147,11 @@
       <label>寶寶名字</label>
       <input type="text" id="inBaby" placeholder="例如：小宇" />
 
-      <label>寶寶出生日期（B1）</label>
+      <label>寶寶出生日期（必填）</label>
       <input type="date" id="inBirth" onchange="renderAge()" />
       <div id="ageOut" class="pill" style="margin-top:6px"></div>
 
-      <label>寶寶性別（B2）</label>
-      <div class="opt" data-name="gender">
-        <span class="chip" data-v="男">男</span>
-        <span class="chip" data-v="女">女</span>
-        <span class="chip" data-v="不願透露">不願透露</span>
-      </div>
-
-      <label>是否足月出生（B3）</label>
-      <div class="opt" data-name="fullterm">
-        <span class="chip" data-v="是（37 週或以上）">是（37 週或以上）</span>
-        <span class="chip" data-v="否">否</span>
-      </div>
-      <input type="text" id="inWeeks" placeholder="若否，請填寫出生週數" style="display:none;margin-top:6px" />
-
-      <label>日常主要照顧者（B4）</label>
-      <div class="opt" data-name="carer">
-        <span class="chip" data-v="媽媽">媽媽</span>
-        <span class="chip" data-v="爸爸">爸爸</span>
-        <span class="chip" data-v="祖父母">祖父母</span>
-        <span class="chip" data-v="外傭">外傭</span>
-        <span class="chip" data-v="托兒所">托兒所</span>
-        <span class="chip" data-v="其他">其他</span>
-      </div>
-
-      <label>主要家庭語言（B5）</label>
-      <div class="opt" data-name="lang">
-        <span class="chip" data-v="廣東話">廣東話</span>
-        <span class="chip" data-v="普通話">普通話</span>
-        <span class="chip" data-v="英語">英語</span>
-      </div>
-
-      <label>居住城市線級（F1）</label>
+      <label>居住城市線級（影響課程強度建議）</label>
       <div class="opt" data-name="tier">
         <span class="chip" data-v="1線">一線</span>
         <span class="chip" data-v="2線">二線</span>
@@ -192,77 +161,22 @@
         <span class="chip" data-v="香港">香港</span>
       </div>
 
-      <label>您的最高學歷（F2）</label>
-      <div class="opt" data-name="edu">
-        <span class="chip" data-v="高中或以下">高中或以下</span>
-        <span class="chip" data-v="大專">大專</span>
-        <span class="chip" data-v="本科">本科</span>
-        <span class="chip" data-v="碩士或以上">碩士或以上</span>
-      </div>
-
-      <label>家庭月收入（F3，可選）</label>
-      <div class="opt" data-name="income">
-        <span class="chip" data-v="5,000 以下">5,000 以下</span>
-        <span class="chip" data-v="5,000–10,000">5,000–10,000</span>
-        <span class="chip" data-v="10,000–20,000">10,000–20,000</span>
-        <span class="chip" data-v="20,000–40,000">20,000–40,000</span>
-        <span class="chip" data-v="40,000 以上">40,000 以上</span>
-      </div>
-
-      <label>家中是否有成人能日常使用英語（F4）</label>
-      <div class="opt" data-name="engAdult">
-        <span class="chip" data-v="是">是</span>
-        <span class="chip" data-v="否">否</span>
-      </div>
-
-      <label>是否聽過「Doman 教學法」或「腦部發育階段」（F5）</label>
-      <div class="opt" data-name="doman">
-        <span class="chip" data-v="是">是</span>
-        <span class="chip" data-v="否">否</span>
-      </div>
-
-      <h3>英語環境（E1–E6）</h3>
-      <label>E1 每天接觸英語時間</label>
+      <h3>英語環境</h3>
+      <label>每天接觸英語時間</label>
       <select id="E1">
         <option>幾乎沒有</option><option>少於 15 分鐘</option>
         <option>15–30 分鐘</option><option>30–60 分鐘</option><option>1 小時以上</option>
       </select>
-      <label>E2 家中主要透過哪些方式讓寶寶接觸英語？（可複選）</label>
-      <div class="opt" data-name="E2" data-multi="1">
-        <span class="chip" data-v="英文兒歌">英文兒歌</span>
-        <span class="chip" data-v="英文卡通／影片">英文卡通／影片</span>
-        <span class="chip" data-v="英文繪本">英文繪本</span>
-        <span class="chip" data-v="親子英文對話">親子英文對話</span>
-        <span class="chip" data-v="英文學習 App">英文學習 App</span>
-        <span class="chip" data-v="英文補習班／興趣班">英文補習班／興趣班</span>
-        <span class="chip" data-v="其他">其他</span>
-        <span class="chip" data-v="以上皆無">以上皆無</span>
-      </div>
-      <label>E3 家長是否用英語互動</label>
+      <label>家長是否用英語互動</label>
       <select id="E3"><option>經常</option><option>有時</option><option>很少</option><option>從不</option></select>
-      <label>E4 是否常聽到標準英語發音</label>
+      <label>是否常聽到標準英語發音</label>
       <select id="E4"><option>每天</option><option>每週數次</option><option>偶爾</option><option>從未</option></select>
-      <label>E5 家中是否有固定英文親子共讀時間？</label>
-      <select id="E5"><option>每天</option><option>每週 3–5 次</option><option>每週 1–2 次</option><option>很少</option><option>從不</option></select>
 
-      <label>E6 希望寶寶透過哪種形式學英語？（可複選）</label>
-      <div class="opt" data-name="E6" data-multi="1">
-        <span class="chip" data-v="真人老師">真人老師</span>
-        <span class="chip" data-v="AI 數字人對話">AI 數字人對話</span>
-        <span class="chip" data-v="兒歌律動">兒歌律動</span>
-        <span class="chip" data-v="繪本故事">繪本故事</span>
-        <span class="chip" data-v="遊戲 App">遊戲 App</span>
-        <span class="chip" data-v="日常生活對話">日常生活對話</span>
-      </div>
-
-      <h3 id="abilityTitle">寶寶英語能力</h3>
-      <div id="abilityBox"></div>
-
-      <h3>發展評估（Doman 六通路 · 依月齡動態出題）</h3>
-      <div class="note">選項：0 尚未出現 ｜ 1 偶爾出現（一週 1–2 次）｜ 2 經常出現（一週 3–5 次）｜ 3 穩定出現（幾乎每天）。只顯示生理階段 ±1 的題目。</div>
+      <h3>四維度評估（依月齡動態出題）</h3>
+      <div class="note">視覺／聽覺＝發展通路（顯示生理階段 ±1）；閱讀／拼寫＝能力階梯（由第一階段起顯示，未學過不算落後）。選項：0 尚未出現 ｜ 1 偶爾 ｜ 2 經常 ｜ 3 穩定。</div>
       <div id="physBox"></div>
 
-      <h3>目標與約束（G1–G4）</h3>
+      <h3>目標與約束</h3>
       <label>G1 最希望優先提升</label>
       <div class="opt" data-name="goal">
         <span class="chip" data-v="聽力理解">聽力理解</span>
@@ -285,13 +199,6 @@
         <span class="chip" data-v="適度使用">適度使用</span>
         <span class="chip" data-v="盡量減少">盡量減少</span>
         <span class="chip" data-v="不接受">不接受</span>
-      </div>
-
-      <label>G4 是否希望課程對接國際標準（如 Cambridge YLE Pre-A1）？</label>
-      <div class="opt" data-name="g4">
-        <span class="chip" data-v="是，希望有明確標準">是，希望有明確標準</span>
-        <span class="chip" data-v="不太清楚這些標準">不太清楚這些標準</span>
-        <span class="chip" data-v="否，只希望日常溝通">否，只希望日常溝通</span>
       </div>
 
       <label>家長補充描述（用於性格推斷）</label>
@@ -377,7 +284,7 @@
         <div class="row">
           <button class="ghost" onclick="go('questionnaire')">✏️ 重新填寫問卷</button>
         </div>
-        <div class="note">英語等級由 EA/EB 作答計算；Doman 階段由六通路觀察計算；城市線級會校正環境等級（effective_env）。</div>
+        <div class="note">英語等級由閱讀／拼寫階梯計算；發展階段由視覺／聽覺觀察計算；城市線級會校正環境等級（effective_env）。</div>
       </div>
     </div>
   </section>
@@ -424,9 +331,6 @@ document.addEventListener('click',function(e){
     c.classList.add('on');
     S[o.dataset.name]=c.dataset.v;
   }
-  if(o.dataset.name==='fullterm'){
-    document.getElementById('inWeeks').style.display=(c.dataset.v==='否')?'block':'none';
-  }
 });
 
 function go(v){
@@ -455,7 +359,7 @@ function renderSettings(){
     '<b>數字人對話</b><div>'+(p.safety.ok?'<span class="pill deep">已開啟</span>':'<span class="pill">未開啟（未滿 3 歲或 L0：僅聲音暴露）</span>')+'</div>'+
     '<b>Doman 生理階段</b><div>第 '+(ph?ph.physiological:'—')+' 階段（月齡 '+S.months+' 個月）</div>'+
     '<b>整體發育</b><div>第 '+(ph?ph.overall:'—')+' 階段</div>'+
-    '<b>六通路</b><div>'+(ph?PATHWAYS.map(function(x){return x.name+' 第'+ph.pathways[x.key].stage+'階段';}).join(' ｜ '):'—')+'</div>'+
+    '<b>四維度</b><div>'+(ph?PATHWAYS.map(function(x){return x.name+' 第'+ph.pathways[x.key].stage+'階段';}).join(' ｜ '):'—')+'</div>'+
     '<b>薄弱項</b><div>'+(ph&&ph.weak.length?ph.weak.join('、'):'—')+'</div>'+
     '<b>優勢項</b><div>'+(ph&&ph.strong.length?ph.strong.join('、'):'—')+'</div>'+
     '<b>分量</b><div>每次 '+p.dosage.session_min+' 分 × '+p.dosage.frequency_per_week+' 次/週（共 '+p.dosage.weekly_min+' 分）· 模式 '+p.dosage.mode+'</div>'+
@@ -472,39 +376,7 @@ function renderAge(){
   if(!d)return;
   var m=monthsFrom(d); S.months=m;
   document.getElementById('ageOut').textContent='估算月齡：'+m+' 個月（'+Math.floor(m/12)+'歲'+(m%12)+'個月）';
-  var box=document.getElementById('abilityBox');
-  if(m<18){
-    box.innerHTML='<div class="note">未滿 18 個月：僅評英語環境，等級鎖 L0。</div>';
-  }else if(m<36){
-    box.innerHTML=abilityEA();
-  }else{
-    box.innerHTML=abilityEB();
-  }
   renderPhys();
-}
-function abilityEA(){
-  var qs=[['EA1','聽英文兒歌時會安靜下來、轉頭或表現出興趣'],
-    ['EA2','會跟著英文兒歌做動作（拍手、揮手、搖頭）'],
-    ['EA3','能對英文指令有反應（Clap your hands / Wave bye-bye）'],
-    ['EA4','會模仿英文聲音或簡單單字（dog、ball、apple）'],
-    ['EA5','能指認英文圖卡/繪本常見物品（cat、car、banana）']];
-  return qs.map(function(q){
-    var opts = q[0]==='EA5' ? '<option>5 個以上</option><option>3–4 個</option><option>1–2 個</option><option>不會</option>'
-                            : '<option>經常</option><option>有時</option><option>很少</option><option>從不</option>';
-    return '<label>'+q[0]+' '+q[1]+'</label><select id="'+q[0]+'">'+opts+'</select>';
-  }).join('');
-}
-function abilityEB(){
-  var qs=[['EB1','能用英語回答簡單個人問題（What\'s your name?）','<option>能完整回答</option><option>能說一兩個字</option><option>只會點頭或搖頭</option><option>沒反應</option>'],
-    ['EB2','能用英語表達基本需求（I want water / Help me）','<option>經常</option><option>有時</option><option>很少</option><option>從不</option>'],
-    ['EB3','能唱整首簡單英文兒歌或跟讀英文短句','<option>能唱完整首</option><option>能跟讀幾句</option><option>只會幾個字</option><option>不會</option>'],
-    ['EB4','開始注意英文字母或單字的形狀','<option>經常</option><option>有時</option><option>很少</option><option>從不</option>'],
-    ['EB5','能分辨英文單字開頭的音（b-b-ball / c-c-cat）','<option>經常</option><option>有時</option><option>很少</option><option>從不</option>'],
-    ['EB6','能認出並說出 10 個以上英文單字','<option>20 個以上</option><option>10–19 個</option><option>5–9 個</option><option>5 個以下</option>'],
-    ['EB7','英文對話中會主動發問或延續話題','<option>經常</option><option>有時</option><option>很少</option><option>從不</option>']];
-  return qs.map(function(q){
-    return '<label>'+q[0]+' '+q[1]+'</label><select id="'+q[0]+'">'+q[2]+'</select>';
-  }).join('');
 }
 
 /* ---- 評估計算 ---- */
@@ -516,26 +388,32 @@ function envLevel(){
   if((e1.indexOf("30")>=0||e1.indexOf("1 小時")>=0)&&e3==="經常"&&e4==="每天")return 3;
   return 2;
 }
+function stageOf(key){
+  var p=null, hi=S.physWindow?S.physWindow[1]:7;
+  PATHWAYS.forEach(function(x){ if(x.key===key)p=x; });
+  if(!p)return 0;
+  var lo=p.dev?(S.physWindow?S.physWindow[0]:1):1;   // 能力階梯由第 1 階段起算
+  var st=0;
+  for(var s=1;s<=hi;s++){
+    var ok=true;
+    p.questions.forEach(function(q){
+      if(q[1]>=lo&&q[1]<=s&&(parseInt(S[q[0]],10)||0)<2)ok=false;
+    });
+    if(!ok)break;
+    st=s;
+  }
+  return st;
+}
 function englishLevel(){
   var m=S.months;
   if(m<18)return "L0";
-  var map={"經常":3,"有時":2,"很少":1,"從不":0};
-  var mEA5={"5 個以上":3,"3–4 個":2,"1–2 個":1,"不會":0};
-  var mEB1={"能完整回答":3,"能說一兩個字":2,"只會點頭或搖頭":1,"沒反應":0};
-  var mEB3={"能唱完整首":3,"能跟讀幾句":2,"只會幾個字":1,"不會":0};
-  var mEB6={"20 個以上":3,"10–19 個":2,"5–9 個":1,"5 個以下":0};
-  var s=0, el, m;
-  if(m<36){
-    ['EA1','EA2','EA3','EA4','EA5'].forEach(function(k){ el=document.getElementById(k); if(el) s+=(k==='EA5'?mEA5[el.value]:map[el.value])||0; });
-    return (s/15)>=0.5?"L2":"L1";
-  }else{
-    ['EB1','EB2','EB3','EB4','EB5','EB6','EB7'].forEach(function(k){
-      el=document.getElementById(k); if(!el)return;
-      m = k==='EB1'?mEB1 : k==='EB3'?mEB3 : k==='EB6'?mEB6 : map;
-      s += m[el.value]||0;
-    });
-    return (s/21)>=0.7?"L4":((s/21)>=0.45?"L3":"L2");
-  }
+  var r=stageOf('reading'), sp=stageOf('spelling');
+  var base = r>=5?4 : r>=4?3 : r>=3?2 : r>=2?1 : 0;   // 閱讀階梯 → L0–L4
+  if(sp>=5&&base<4)base=4;                             // 拼讀能力向上修正
+  else if(sp>=4&&base<3)base=3;
+  else if(sp>=3&&base<2)base=2;
+  else if(sp>=1&&base===0)base=1;
+  return "L"+base;
 }
 function inferPersonality(){
   var note=(document.getElementById('inNote').value||""), best="socializer", score=-1, k;
@@ -557,15 +435,9 @@ function computeDosage(level,freqKey,screenKey,tierKey){
 var MISTAKES=[]; // 課堂記錄：尚未上課前保持空白（概念性錯誤需在練習中觀察累積）
 
 /* ---- 由問卷答案動態生成的內容（不再硬編碼示範資料） ---- */
-function itemScore(k){
-  var el=document.getElementById(k); if(!el)return 2;
-  var map={"經常":3,"有時":2,"很少":1,"從不":0};
-  var mEA5={"5 個以上":3,"3–4 個":2,"1–2 個":1,"不會":0};
-  var mEB1={"能完整回答":3,"能說一兩個字":2,"只會點頭或搖頭":1,"沒反應":0};
-  var mEB3={"能唱完整首":3,"能跟讀幾句":2,"只會幾個字":1,"不會":0};
-  var mEB6={"20 個以上":3,"10–19 個":2,"5–9 個":1,"5 個以下":0};
-  var m = k==='EA5'?mEA5 : k==='EB1'?mEB1 : k==='EB3'?mEB3 : k==='EB6'?mEB6 : map;
-  return m[el.value]||0;
+function sScore(k){
+  var v=parseInt(S[k],10);
+  return isNaN(v)?2:v;   // 未答視為 2（經常）——中性預設
 }
 function buildMistakes(){ return []; } // 概念性錯誤需課堂練習中觀察累積；尚未上課 → 空白
 var NEXT_STEPS={"L0":["聲音暴露：每日兒歌 5 分鐘","親子律動：Clap your hands"],
@@ -574,10 +446,16 @@ var NEXT_STEPS={"L0":["聲音暴露：每日兒歌 5 分鐘","親子律動：Cla
   "L3":["數字人問答：What is this?","Phonics：b-b-ball 首音"],
   "L4":["角色扮演：At the park","故事複述：看圖說故事"]};
 function buildProgress(lvl, phys){
-  var mastered=[], items=[['EA1','listening to songs'],['EA2','actions to songs'],['EA3','following instructions'],
-    ['EA4','imitating sounds'],['EA5','picture recognition'],['EB1','answering questions'],['EB2','expressing needs'],
-    ['EB3','singing'],['EB4','letter shapes'],['EB5','first sounds'],['EB6','vocabulary'],['EB7','conversation']];
-  items.forEach(function(x){ if(itemScore(x[0])>=3) mastered.push(x[1]); });
+  var mastered=[];
+  if(sScore('V5')>=3)mastered.push('picture recognition');
+  if(sScore('A4')>=3)mastered.push('understanding words');
+  if(sScore('A5')>=3)mastered.push('following instructions');
+  if(stageOf('reading')>=3)mastered.push('reading single words');
+  if(stageOf('reading')>=4)mastered.push('reading phrases');
+  if(stageOf('reading')>=5)mastered.push('reading sentences');
+  if(stageOf('spelling')>=3)mastered.push('first sounds');
+  if(stageOf('spelling')>=5)mastered.push('blending CVC');
+  if(stageOf('spelling')>=6)mastered.push('spelling aloud');
   function avg(arr){ return arr.reduce(function(a,b){return a+b;},0)/arr.length; }
   function pill(v){ return v>=2.5?'ok':(v>=1.5?'building':'early'); }
   return {
@@ -586,9 +464,9 @@ function buildProgress(lvl, phys){
       return {concept:m.c, since:new Date().toISOString().slice(0,10), pillar:m.pillar, drill:m.drill};
     }),
     current_level: lvl,
-    pillars: {hear:pill(avg([itemScore('EA1'),itemScore('EA2'),itemScore('EA3'),itemScore('EB1'),itemScore('EB2'),itemScore('EB3'),itemScore('EB7')])),
-              read:pill(avg([itemScore('EA5'),itemScore('EB4'),itemScore('EB6')])),
-              spell:pill(avg([itemScore('EA4'),itemScore('EB3'),itemScore('EB5')]))},
+    pillars: {hear:pill(avg([sScore('A3'),sScore('A4'),sScore('A5'),sScore('A6')])),
+              read:pill(avg([sScore('R3'),sScore('R4'),sScore('R5')])),
+              spell:pill(avg([sScore('SP3'),sScore('SP4'),sScore('SP5')]))},
     next_steps: NEXT_STEPS[lvl]||NEXT_STEPS.L2
   };
 }
@@ -617,10 +495,10 @@ function buildScript(lvl){
   return (T[lvl]||T.L2).map(function(t){return {en:t[0],zh:t[1]};});
 }
 
-/* ---- 六通路發展評估（Doman 七階段，依月齡動態出題，對標 questionnaires.md 第一部分） ---- */
+/* ---- 四維度評估（視覺／聽覺＝發展通路，閱讀／拼寫＝能力階梯；依月齡動態出題） ---- */
 var SCALE=[{v:0,l:'0 尚未出現'},{v:1,l:'1 偶爾'},{v:2,l:'2 經常'},{v:3,l:'3 穩定'}];
 var PATHWAYS=[
- {key:'visual',name:'視覺',questions:[
+ {key:'visual',name:'視覺',dev:true,tag:'發展通路',questions:[
    ['V1',1,'當手電筒光線短暫照向眼睛時，瞳孔會明顯收縮。','用手機閃光燈或小手電，從側面快速照一下，看眼睛是否會縮小。'],
    ['V2',2,'能追蹤牆壁上較深色或鮮明的物體（木板、玩具）。','把顏色鮮豔的玩具掛在眼前 20–30 厘米處緩慢左右移動，看眼睛是否跟著動。'],
    ['V3',3,'能認出父母的臉，並對熟悉的臉露出微笑。','看到爸爸媽媽時，會不會特別開心、笑？'],
@@ -628,7 +506,7 @@ var PATHWAYS=[
    ['V5',5,'喜歡看圖畫書，並能指出書中熟悉的動物或物品（貓、狗、球）。','拿常看的圖畫書問「貓貓在哪裡？」，看他會不會用手指。'],
    ['V6',6,'開始能認出個別英文字母或數字（指著 A 說「A」）。','在字母磁鐵或圖卡中，能否認出幾個常見字母？'],
    ['V7',7,'能閱讀簡單詞語或短句（認出 cat、dog）。','看到簡單英文單字或中文字卡時，能不能讀出來？']]},
- {key:'auditory',name:'聽覺',questions:[
+ {key:'auditory',name:'聽覺',dev:true,tag:'發展通路',questions:[
    ['A1',1,'突然的聲音（拍手、關門聲）會讓寶寶驚嚇或跳動。','在旁邊突然拍一下手，看身體會不會有反應。'],
    ['A2',2,'對響亮、穿透性的聲音（汽車喇叭、吸塵器）有明顯反應。','聽到車喇叭或大聲音時，會不會安靜下來或轉頭？'],
    ['A3',3,'會轉頭看向聲音來源。','在背後搖鈴鐺，看會不會轉頭去找。'],
@@ -636,38 +514,22 @@ var PATHWAYS=[
    ['A5',5,'理解簡單指令（「過來這裡」「拿給我」）。','不帶動作只說「過來」，會不會走過來？'],
    ['A6',6,'能理解較複雜的句子（「把你的鞋放在櫃子裡」）。','說一個有兩個步驟的指令，能不能跟著做？'],
    ['A7',7,'聽得懂大部分日常對話，並理解安全規則。','講故事或解釋規矩時，能不能聽懂並照做？']]},
- {key:'tactile',name:'觸覺',questions:[
-   ['T1',1,'輕撫腳底時大腳趾會向上彎曲（巴賓斯基反射）。','輕輕從腳跟撫摸到腳趾，看大腳趾是否向上翹。'],
-   ['T2',2,'對冷熱感覺有明顯反應（碰冰塊縮手、溫毛巾放鬆）。','用稍涼或稍溫的布輕觸手臂，看有沒有反應。'],
-   ['T3',3,'能分辨皮膚上涼爽和溫暖的觸感。','給寶寶摸涼的塑膠和溫暖的布，看他會不會表現出不同反應。'],
-   ['T4',4,'會用手探索物體的所有側面（翻轉積木、摸球面）。','給積木或球，看會不會用兩隻手翻來翻去摸。'],
-   ['T5',5,'僅透過觸摸就能區分兩種不同類型的物品（軟球、硬積木）。','蒙住眼睛用手摸兩樣東西，能否說出「軟」和「硬」？'],
-   ['T6',6,'僅透過觸摸就能描述物品形狀（「圓形」「光滑」）。','閉眼摸一個球，問「這是什麼形狀？」'],
-   ['T7',7,'黑暗中僅靠觸摸就能認出日常用品（鑰匙、杯子）。','把熟悉的東西放進袋子裡不讓看，用手摸後能否說出是什麼。']]},
- {key:'motor',name:'活動能力',questions:[
-   ['M1',1,'出生時有不自主的肢體擺動（手腳無意識舞動）。','觀察躺著時，手腳是否會自己動來動去。'],
-   ['M2',2,'趴著時會嘗試向前蠕動或蹬腿。','讓寶寶趴在軟墊上，看會不會手腳蹬地試著往前。'],
-   ['M3',3,'能用手和膝蓋在地板上爬行。','在地上放吸引人的玩具，看他會不會爬過去拿。'],
-   ['M4',4,'能邁出第一步，開始學習獨立行走。','扶著沙發站起來後放手，看能不能自己走一兩步。'],
-   ['M5',5,'能在室內外自主行走，雙手自然垂下不需張臂平衡。','走路時兩隻手是否自然垂在身邊，不會像小飛機一樣張開？'],
-   ['M6',6,'能自然地跑步、踢球，或雙腳跳離地面。','帶到公園，看他會不會跑起來或把皮球踢出去。'],
-   ['M7',7,'能單腳跳、踢球等較技巧性的動作。','試著單腳跳，或把球踢向目標。']]},
- {key:'language',name:'語言',questions:[
-   ['L1',1,'除了哭，還會發出其他聲音。','除了餓或不適時哭，平時會不會發出「啊」「哦」的聲音？'],
-   ['L2',2,'疼痛或不適時會發出長時間劇烈哭聲，且哭聲有明顯不同。','餓了、痛了、累了的哭聲，能不能聽出差別？'],
-   ['L3',3,'開心時會發出快樂的呀呀聲或咯咯笑聲。','開心的時候會不會「咯咯」笑或發出長串呀呀聲？'],
-   ['L4',4,'會說簡單詞彙（「媽媽」「爸爸」「不」「球」）。','會不會清楚叫「爸爸」「媽媽」，或指著東西說一個字？'],
-   ['L5',5,'會使用 10–25 個單字，或能說兩詞短句（「更多牛奶」）。','數一數會說多少個字；會不會把兩個字連在一起說？'],
-   ['L6',6,'能講出簡單的完整句子（「我想要水」「這是什麼？」）。','會不會說「我要xx」「這是什麼」這樣的句子？'],
-   ['L7',7,'能流利表達想法、講述簡單故事，並回答「為什麼」。','能不能講一件今天發生的事，或回答「點解」？']]},
- {key:'hand',name:'手部靈活度',questions:[
-   ['H1',1,'手指放進手掌會反射性地緊緊握住。','輕輕把手指放在手心，看會不會自動握住。'],
-   ['H2',2,'能主動抓握並放開撥浪鼓或小型玩具。','給小搖鈴，看他能不能抓住再鬆手放下。'],
-   ['H3',3,'會伸手抓取想要的玩具或物品。','把玩具放在伸手可及的地方，看他會不會伸手去拿。'],
-   ['H4',4,'能用拇指和食指撿起細小食物（小饅頭、葡萄乾）。','給一些小顆零食，看會不會用兩根手指捏起來。'],
-   ['H5',5,'能雙手合作完成動作（拍手、疊積木）。','說「拍手」，看他會不會雙手一起拍。'],
-   ['H6',6,'能打開瓶蓋、拉開拉鍊，或將液體從一個杯子倒到另一個杯子。','試著打開零食罐蓋子，或倒一杯水到另一個杯子。'],
-   ['H7',7,'能用較靈活的手提筆寫字或畫複雜圖案。','給一枝筆，看能不能握筆畫出圓形、十字等。']]}
+ {key:'reading',name:'閱讀',tag:'能力階梯',questions:[
+   ['R1',1,'能凝視字卡 2–3 秒（靜止的字卡也看一陣子）。','拿白底紅字字卡放在眼前 30 厘米，看是否注視幾秒不轉頭。'],
+   ['R2',2,'能分辨兩張不同字卡（對熟悉的一張有特別反應）。','出示兩張字卡，看對其中一張是否會伸手、微笑或發出聲音。'],
+   ['R3',3,'能認出常見單字（看到 cat 會指貓或發出聲音）。','出示 cat 字卡問「cat 在哪裡？」，看能否指出或發出聲音。'],
+   ['R4',4,'能讀詞組（red apple、big dog）。','出示 big dog 詞卡，看能否讀出或指認正確。'],
+   ['R5',5,'能讀短句（The dog runs.）。','出示短句卡，看能否讀出並理解意思。'],
+   ['R6',6,'能讀完整句子並照做（讀 Run! 會跟著跑）。','讀完句子卡後，看能否做出對應動作。'],
+   ['R7',7,'能獨立閱讀簡單英文小書（自己翻頁讀）。','給一本簡單英文書，看能否自己翻頁並讀出內容。']]},
+ {key:'spelling',name:'拼寫',tag:'能力階梯',questions:[
+   ['SP1',1,'能模仿單一字母音（A → /æ/）。','示範 A 的發音，看會不會跟著說。'],
+   ['SP2',2,'能分辨兩個字母音不同（b 和 d 聽起來不同）。','分別說 b、d 的音，看反應是否不同。'],
+   ['SP3',3,'能說出單字的第一個音（ball → b）。','說 ball，問「第一個音是什麼？」，看能否說出 b。'],
+   ['SP4',4,'能按音節拍手（ba-na-na → 拍 3 下）。','慢慢說 banana，看能否跟著拍 3 下。'],
+   ['SP5',5,'能拼讀 CVC 字（c-a-t → cat）。','逐音說「c-a-t」，看能否合起來說 cat。'],
+   ['SP6',6,'能口頭拼出常見字（cat → C-A-T）。','問「cat 怎麼拼？」，看能否逐字母說出。'],
+   ['SP7',7,'能寫出常見字（用筆寫 cat）。','給紙筆，看能否寫出 cat 或簡單英文字。']]}
 ];
 function physStageOf(months){
   if(months<1.5)return 1;
@@ -682,8 +544,9 @@ function renderPhys(){
   var ps=physStageOf(S.months), lo=Math.max(1,ps-1), hi=Math.min(7,ps+1);
   S.physWindow=[lo,hi];
   document.getElementById('physBox').innerHTML=PATHWAYS.map(function(p){
-    var qs=p.questions.filter(function(q){return q[1]>=lo&&q[1]<=hi;});
-    return '<h3 style="margin-top:16px">'+p.name+'通路（第 '+lo+'–'+hi+' 階段題目）</h3>'
+    var plo=p.dev?lo:1;   // 能力階梯（閱讀/拼寫）由第一階段起顯示：未學過不設月齡下限
+    var qs=p.questions.filter(function(q){return q[1]>=plo&&q[1]<=hi;});
+    return '<h3 style="margin-top:16px">'+p.name+'（'+p.tag+' · 第 '+plo+'–'+hi+' 階段題目）</h3>'
       +qs.map(function(q){
         return '<label>'+q[0]+'（第 '+q[1]+' 階段）'+q[2]+'</label>'
           +'<div class="note" style="margin:4px 0 8px">👀 '+q[3]+'</div>'
@@ -694,25 +557,17 @@ function renderPhys(){
   }).join('');
 }
 function physAssessment(){
-  var ps=physStageOf(S.months), lo=S.physWindow[0], hi=S.physWindow[1];
+  var ps=physStageOf(S.months);
   var res={physiological:ps,pathways:{},weak:[],strong:[],overall:0}, stages=[];
   PATHWAYS.forEach(function(p){
-    var st=0;
-    for(var s=1;s<=hi;s++){
-      var ok=true;
-      p.questions.forEach(function(q){
-        if(q[1]>=lo&&q[1]<=s&&(parseInt(S[q[0]],10)||0)<2)ok=false;
-      });
-      if(!ok)break;
-      st=s;
-    }
+    var st=stageOf(p.key);
     res.pathways[p.key]={name:p.name,stage:st};
     stages.push(st);
-    if(st<ps)res.weak.push(p.name);
-    if(st>ps)res.strong.push(p.name);
+    if(p.dev&&st<ps)res.weak.push(p.name);   // 閱讀/拼寫是學習目標，不算發展落後
+    if(p.dev&&st>ps)res.strong.push(p.name);
   });
   var sorted=stages.slice().sort(function(a,b){return a-b;});
-  res.overall=Math.round((sorted[2]+sorted[3])/2);
+  res.overall=Math.round((sorted[1]+sorted[2])/2);   // 四維度中位數
   return res;
 }
 
@@ -778,9 +633,10 @@ function generateTeachingPlanLocal(){
   var pools={
     L0:[["Hear","聲音暴露：播放英文兒歌","每天播放 3 首英文兒歌，觀察是否轉頭/安靜",["la-la-la"]],
         ["Hear","親子律動：Clap your hands","邊唱邊拍手，讓寶寶模仿動作",["clap","hands"]],
-        ["Read","圖卡凝視訓練","對比鮮明圖卡在眼前 20–30cm 緩慢移動",["—"]]],
+        ["Vision","圖卡凝視訓練","對比鮮明圖卡在眼前 20–30cm 緩慢移動",["—"]]],
     L1:[["Hear","TPR 指令：Touch your nose","邊說邊做，引導寶寶模仿",["nose","touch"]],
         ["Read","實物命名：ball","拿起球說 ball，讓寶寶指認",["ball","dog"]],
+        ["Vision","圖卡追蹤：緩慢移動","ball 圖卡在眼前 20–30cm 緩慢左右移動，眼睛跟著走",["ball"]],
         ["Spell","字母音：A（/æ/）","展示 A 磚說 /æ/，鼓勵跟說",["A"]]],
     L2:[["Hear","兒歌跟唱：Twinkle Twinkle","跟唱並做動作",["twinkle","star"]],
         ["Read","圖卡配對：cat / dog","圖卡配對遊戲",["cat","dog"]],
@@ -802,7 +658,7 @@ function generateTeachingPlanLocal(){
     weeks.push({week:w,focus:t[w-1],lessons:lessons});
   }
   if(weak.length){
-    var wm={視覺:"Read",聽覺:"Hear",觸覺:"Hear",活動能力:"Hear",語言:"Hear+Spell",手部靈活度:"Read"};
+    var wm={視覺:"Vision",聽覺:"Hear"};
     weeks[0].focus=t[0]+"（針對薄弱項："+weak.join("、")+"）";
     weeks[0].lessons[0]={day:"Day 1",pillar:wm[weak[0]]||"Hear",activity:"強化訓練："+weak[0]+"小遊戲",how:"依薄弱項安排親子小遊戲（每次 "+mins+" 分）",words:"—",goal:"補強薄弱項："+weak[0]};
   }
@@ -1191,9 +1047,9 @@ function apiSaveAnswers(a){ return apiFetch('PUT','/api/answers',{answers:a}); }
 function apiSaveSnapshot(s){ return apiFetch('PUT','/api/snapshot',{snapshot:s}); }
 function apiSavePlan(p,s){ return apiFetch('PUT','/api/plan',{plan:p,schedule:s}); }
 
-var INPUT_IDS=['inParent','inBaby','inBirth','inNote','inWeeks'];
-var SELECT_IDS=['E1','E3','E4','E5','EA1','EA2','EA3','EA4','EA5','EB1','EB2','EB3','EB4','EB5','EB6','EB7'];
-var CHIP_KEYS=['gender','fullterm','carer','lang','tier','edu','income','engAdult','doman','E2','E6','goal','freq','screen','g4'];
+var INPUT_IDS=['inParent','inBaby','inBirth','inNote'];
+var SELECT_IDS=['E1','E3','E4'];
+var CHIP_KEYS=['tier','goal','freq','screen'];
 function collectAnswers(){
   var pairs=[];
   INPUT_IDS.forEach(function(id){var e=document.getElementById(id);if(e)pairs.push([id,e.value]);});
@@ -1231,7 +1087,6 @@ function applyAnswers(ans){
     if(o.dataset.multi){(v||[]).forEach(function(x){o.querySelectorAll('.chip').forEach(function(c){if(c.dataset.v===x)c.classList.add('on');});});}
     else{o.querySelectorAll('.chip').forEach(function(c){if(c.dataset.v===v)c.classList.add('on');});}
   });
-  var w=document.getElementById('inWeeks'); if(w)w.style.display=(S.fullterm==='否')?'block':'none';
 }
 function loadAnswers(ans){
   if(!ans)return;
@@ -1239,7 +1094,7 @@ function loadAnswers(ans){
     if(INPUT_IDS.indexOf(k)>=0){var e=document.getElementById(k);if(e)e.value=v;return;}
   });
   var b=document.getElementById('inBirth');
-  if(b&&b.value) renderAge(); // 依出生日期重建 EA/EB 與六通路題目（renderAge 會設 S.months）
+  if(b&&b.value) renderAge(); // 依出生日期重建四維度題目（renderAge 會設 S.months）
   applyAnswers(ans);
 }
 function loadPlan(p){

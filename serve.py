@@ -116,6 +116,22 @@ def _deepseek_key():
 
 DEEPSEEK_MODEL = os.environ.get('DEEPSEEK_MODEL', 'deepseek-v4-flash')
 
+_KB_DIR = os.path.join(ROOT, 'Agent knowledge base')
+
+
+def _lesson_planner_prompt():
+    """課程設計師系統提示：優先讀 Agent knowledge base/lesson-planner-agent.md，
+    缺失或空白時退回內建精簡版（保持 /api/generate-plan 永不因 KB 問題中斷）。"""
+    try:
+        with open(os.path.join(_KB_DIR, 'lesson-planner-agent.md'), encoding='utf-8') as f:
+            t = f.read().strip()
+        if t:
+            return t
+    except Exception:
+        pass
+    return DEEPSEEK_SYSTEM_PROMPT
+
+
 DEEPSEEK_SYSTEM_PROMPT = """You are the curriculum designer of StudyBuddy, an early-English tutor for children aged 0-6 whose mother tongue is Cantonese or Mandarin. You generate a personalized 4-week English lesson plan from the child's assessment profile.
 
 STRICT OUTPUT: reply with ONLY a JSON object (no markdown fences, no commentary) in exactly this shape:
@@ -140,13 +156,13 @@ STRICT OUTPUT: reply with ONLY a JSON object (no markdown fences, no commentary)
 
 RULES:
 1. Exactly 4 weeks. Each week has exactly frequency_per_week lessons (Day 1..N from the profile's dosage.frequency_per_week, clamped 2-6).
-2. Pillars: Hear = listening exposure, Read = word/picture recognition, Spell = oral output / phonics. Choose by English level:
-   - L0 (exposure mode): ALL lessons Hear, no Spell, no words or minimal words, no screen.
-   - L1: mostly Hear + light Read; TPR commands and naming real objects.
-   - L2: Hear + Read + first Spell (echoing, letter sounds, clapping syllables).
-   - L3: all three; "What is this?" Q&A; phonics first sounds (b-b-ball).
-   - L4: all three; role-play dialogue, story retelling, spelling aloud (c-a-t).
-3. Doman weak pathways MUST be addressed: 視覺->Read, 聽覺->Hear, 觸覺->Hear, 活動能力->Hear, 語言->Hear+Spell, 手部靈活度->Read. The FIRST lesson of week 1 is a targeted reinforcement game for the weakest pathway; week 1 focus must include the text 針對薄弱項 and list the weak pathways (e.g. 針對薄弱項：聽覺、語言).
+2. Pillars: Vision = 視覺通路刺激 (visual tracking / card gazing — the input channel that feeds reading), Hear = listening exposure, Read = word/picture recognition, Spell = oral output / phonics. Choose by English level:
+   - L0 (exposure mode): Vision + Hear only — high-contrast card gazing & tracking, songs/rhythm; no Spell, minimal or no words, no screen.
+   - L1: Vision + Hear + light Read; TPR commands and naming real objects, slow card sweeps.
+   - L2: Hear + Read + first Spell (echoing, letter sounds, clapping syllables); Vision continues via letter shapes.
+   - L3: all four; "What is this?" Q&A; phonics first sounds (b-b-ball).
+   - L4: all four; role-play dialogue, story retelling, spelling aloud (c-a-t).
+3. Doman weak pathways MUST be addressed: 視覺->Vision, 聽覺->Hear. The FIRST lesson of week 1 is a targeted reinforcement game for the weakest pathway; week 1 focus must include the text 針對薄弱項 and list the weak pathways (e.g. 針對薄弱項：聽覺).
 4. Every activity must be executable by the parent at home with everyday objects (toys, picture cards, songs, body parts). Short, slow, encouraging English (max 8 words per sentence in the spoken part). Respect dosage: each session <= session_min minutes, screens <= screen_cap_min minutes per day.
 5. Target words: age/level-appropriate concrete nouns and verbs (L1: ball, dog, nose, clap; L2: cat, dog, star, twinkle; L3: what, this, bird, pig; L4: park, run, story...). 2-4 words per lesson, English, joined by 、; use — when the activity has no words (physical play / L0 exposure).
 6. Pace by personality (profile.personality.primary): cautious/sensitive children get more repetition, praise and slower steps; active/explorer children get movement and games.
@@ -164,7 +180,7 @@ def generate_plan_with_deepseek(profile):
     body = {
         'model': DEEPSEEK_MODEL,
         'messages': [
-            {'role': 'system', 'content': DEEPSEEK_SYSTEM_PROMPT},
+            {'role': 'system', 'content': _lesson_planner_prompt()},
             {'role': 'user', 'content': json.dumps(profile, ensure_ascii=False)},
         ],
         'temperature': 0.7,

@@ -110,8 +110,13 @@ vm.createContext(sandbox);
   const login = async (u, p) => { const r = await sandbox.apiLogin(u, p); sandbox.API.token = r.j.token; sandbox.API.user = u; };
   const store = u => server.data.get(u);
 
-  const WEAK_ANSWERS = { inParent: '陳太', inBaby: '小宇', inBirth: '2022-08-01', inNote: '好動坐不住', E1: '15–30 分鐘', E3: '有時', E4: '每週數次', EB1: '只會點頭或搖頭', EB2: '很少', EB3: '只會幾個字', EB5: '很少', EB6: '1–2 個', EB7: '很少' };
-  const setPhys = (strong = true) => { for (const id of ['V5', 'V6', 'A5', 'A6', 'T5', 'T6', 'M5', 'M6', 'L5', 'L6']) sandbox.S[id] = 3; if (!strong) { sandbox.S.L7 = 1; sandbox.S.H5 = 1; sandbox.S.H6 = 1; } };
+  const WEAK_ANSWERS = { inParent: '陳太', inBaby: '小宇', inBirth: '2022-08-01', inNote: '好動坐不住', E1: '15–30 分鐘', E3: '有時', E4: '每週數次' };
+  const setPhys = (strong = true) => {
+    sandbox.S.V5 = 3; sandbox.S.V6 = 3; sandbox.S.A5 = 3;
+    sandbox.S.R1 = 3; sandbox.S.R2 = 3; sandbox.S.R3 = 2; sandbox.S.R4 = 1;  // 閱讀階梯 3 → L2
+    sandbox.S.SP1 = 3; sandbox.S.SP2 = 3; sandbox.S.SP3 = 1;                  // 拼寫階梯 2（不升等）
+    sandbox.S.A6 = strong ? 3 : 1;                                            // 弱聽覺 → 薄弱項
+  };
 
   // ---- flow 1: register + fill + submit => levels/mistakes/progress/chat derived; persisted server-side ----
   await reg('t1', 'test123456');
