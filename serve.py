@@ -133,21 +133,23 @@ def _lesson_planner_prompt():
 
 
 PACKY_BASE_URL = os.environ.get('PACKY_BASE_URL', 'https://www.packyapi.ai')
-PACKY_IMAGE_MODEL = os.environ.get('PACKY_IMAGE_MODEL', 'gpt-image-2')
+PACKY_IMAGE_MODEL = os.environ.get('PACKY_IMAGE_MODEL', 'gemini-2.5-flash-image')
 
 
 def _packy_key():
-    """PackyAPI key：PACKY_CODE_API_KEY / PACKY_CODE_TOKEN（env 或 .env）。"""
-    for k in ('PACKY_CODE_API_KEY', 'PACKY_CODE_TOKEN'):
+    """PackyAPI key：GEMINI_API_KEY（gemini 官渠令牌）優先，其次 PACKY_CODE_API_KEY /
+    PACKY_CODE_TOKEN（env 或 .env）。"""
+    for k in ('GEMINI_API_KEY', 'PACKY_CODE_API_KEY', 'PACKY_CODE_TOKEN'):
         v = os.environ.get(k, '').strip()
         if v:
             return v
     try:
         for line in open(os.path.join(ROOT, '.env'), encoding='utf-8'):
-            if line.strip().startswith(('PACKY_CODE_API_KEY=', 'PACKY_CODE_TOKEN=')):
-                v = line.split('=', 1)[1].strip().strip('"').strip("'")
-                if v:
-                    return v
+            for k in ('GEMINI_API_KEY=', 'PACKY_CODE_API_KEY=', 'PACKY_CODE_TOKEN='):
+                if line.strip().startswith(k):
+                    v = line.split('=', 1)[1].strip().strip('"').strip("'")
+                    if v:
+                        return v
     except FileNotFoundError:
         pass
     return ''
@@ -462,7 +464,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self._send_json(200, {
                 'ok': True, 'db': bool(DB_URL), 'db_host': host, 'db_err': _db_err or None,
                 'deepseek': bool(_deepseek_key()), 'deepseek_ok': deepseek_ping(), 'voice_id': _voice_id() or None,
-                'packy_image': bool(_packy_key()),
+                'packy_image': bool(_packy_key()), 'packy_model': PACKY_IMAGE_MODEL,
             })
             return
         if path == '/api/packy-models':
