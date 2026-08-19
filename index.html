@@ -83,7 +83,7 @@
   <section id="view-login">
     <div class="card">
       <h2>家長登入</h2>
-      <p class="sub" id="loginSub">使用本地帳號（localStorage）登入；首次使用可即時註冊。問卷答案會以本地 SQLite 按帳號保存，下次登入自動載入。</p>
+      <p class="sub" id="loginSub">使用本地帳號（localStorage）登入；首次使用可即時註冊。問卷答案以本地 SQLite 按帳號保存 — 已填過的帳號下次登入直接進入主頁，可於「設定」重填問卷。</p>
       <label>用戶名</label>
       <input type="text" id="inUser" placeholder="例如：chentai" autocomplete="username" />
       <label>密碼</label>
@@ -877,7 +877,8 @@ function loadAnswers(){
   res[0].values.forEach(function(r){var k=r[0],v=r[1];
     if(INPUT_IDS.indexOf(k)>=0){var e=document.getElementById(k);if(e)e.value=v;return;}
   });
-  if(S.inBirth)renderAge();
+  var b=document.getElementById('inBirth');
+  if(b&&b.value) renderAge(); // 依出生日期重建 EA/EB 與六通路題目（renderAge 會設 S.months）
   applyAnswersFromDb();
 }
 function saveAll(){ saveAnswers(); saveSnapshot(); }
@@ -885,10 +886,14 @@ function afterLogin(user){
   S.user=user;
   return initSql().then(function(){
     DB=loadDb(user);
-    loadAnswers();
-    var snap=loadSnapshot();
-    if(snap){Object.assign(S,snap);renderPlan();renderMistakes();renderSched();go('dash');tab('plan');}
-    else{go('questionnaire');}
+    var hasAnswers = DB.exec("SELECT COUNT(*) FROM answers")[0].values[0][0] > 0;
+    if(hasAnswers){
+      loadAnswers();                 // 已填過：直接載入答案
+      submitAssessment();            // 由答案重算評估並存快照 → 自動進入主頁
+      if(!S.plan) go('questionnaire'); // 答案不完整（缺出生日期）→ 回到問卷
+      return;
+    }
+    go('questionnaire');             // 新帳號：填問卷
   }).catch(function(err){ go('questionnaire'); return Promise.reject(err); }); // CDN 失敗時退回無 DB 模式
 }
 </script>
