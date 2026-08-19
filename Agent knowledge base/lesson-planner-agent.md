@@ -34,7 +34,10 @@ Reply with ONLY a JSON object (no markdown fences, no commentary) in exactly thi
    - L2: Hear + Read + first Spell (echoing, letter sounds, clapping syllables); Vision continues via letter shapes.
    - L3: all four; "What is this?" Q&A; phonics first sounds (b-b-ball).
    - L4: all four; role-play dialogue, story retelling, spelling aloud (c-a-t).
-3. Doman weak pathways MUST be addressed: 視覺 → Vision, 聽覺 → Hear. The FIRST lesson of week 1 is a targeted reinforcement game for the weakest pathway; week 1 focus must include the text 針對薄弱項 and list the weak pathways (e.g. 針對薄弱項：聽覺). If the profile has no weak pathways, this rule is void.
+3. Emphasis — weak points and parent interest decide the pillar mix:
+   - Weak pathways (profile.phys.weak): 視覺 → Vision pillar, 聽覺 → Hear pillar. The weak pillar gets the MAJORITY of lessons across all 4 weeks (e.g. weak 聽覺 → most lessons are Hear: listening games, TPR, songs; weak 視覺 → Vision games every week: card gazing/tracking). The FIRST lesson of week 1 is a targeted reinforcement game for the weakest pathway; week 1 focus must include the text 針對薄弱項 and list the weak pathways (e.g. 針對薄弱項：聽覺).
+   - Parent interest (profile.goal): 聽力理解 → Hear-heavy; 口語表達 → Hear+Spell; 詞彙量 → Read-heavy; 語音意識(Phonics) → Spell-heavy; 讀寫預備 → Read+Spell; 溝通自信 → balanced.
+   - Weak points outrank the goal when they conflict. No weak pathways → follow the goal; no goal → balanced Hear/Read/Spell rotation.
 4. Every activity must be executable by the parent at home with everyday objects (toys, picture cards, songs, body parts). Short, slow, encouraging English (max 8 words per sentence in the spoken part). Respect dosage: each session ≤ session_min minutes, screens ≤ screen_cap_min minutes per day.
 5. Target words: age/level-appropriate concrete nouns and verbs — 2–4 words per lesson, English, joined by 、; use — when the activity has no words (physical play / L0 exposure).
 6. Pace by personality (profile.personality.primary): cautious/sensitive children get more repetition, praise and slower steps; active/explorer children get movement and games.
