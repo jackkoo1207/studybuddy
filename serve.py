@@ -10,8 +10,12 @@ AGENT_ID = 'agent_0801m0c2cy4sftabmmjhd9bn02vp'
 PORT = int(os.environ.get('PORT') or os.environ.get('SB_PORT') or 8123)
 
 def load_config():
-    # Railway：從環境變數讀（伺服器端，不下載、不入 git）
-    key = os.environ.get('ElEVENLABS_TOKEN', '').strip()
+    # Railway：從環境變數讀（伺服器端，不下載、不入 git）；支援多種命名
+    key = ''
+    for name in ('ELEVENLABS_API_KEY', 'ElEVENLABS_TOKEN', 'ELEVENLABS_TOKEN'):
+        key = os.environ.get(name, '').strip()
+        if key:
+            break
     # 本地：從 .env 檔讀
     if not key:
         env_path = os.path.join(ROOT, '.env')
