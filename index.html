@@ -755,7 +755,7 @@ function renderPlan(){
   document.getElementById('progressKV').innerHTML=
     '<b>已掌握</b><div>'+(pr&&pr.mastered_topics.length?pr.mastered_topics.map(function(t){return '<span class="pill">'+t+'</span>';}).join(''):'—')+'</div>'+
     '<b>已學會單字</b><div>'+(learnedWords.length?learnedWords.map(function(w){return '<span class="pill strong">'+w+'</span>';}).join(''):'—')+'</div>'+
-    '<b>常錯</b><div>'+(mistakes.length?mistakes.map(function(m){return m.c+'（'+m.pillar+'）';}).join('；'):'—')+'</div>'+
+    '<b>常錯</b><div>'+(mistakes.length?mistakes.map(function(m){return '<span class="pill '+pillarClass(m.pillar)+'" title="'+esc(m.drill||'')+'">'+m.c+'</span>';}).join(''):'—')+'</div>'+
     '<b>四支柱</b><div><span class="pill vision">Vision · '+(pr?pr.pillars.vision:'—')+'</span><span class="pill hear">Hear · '+(pr?pr.pillars.hear:'—')+'</span><span class="pill read">Read · '+(pr?pr.pillars.read:'—')+'</span><span class="pill spell">Spell · '+(pr?pr.pillars.spell:'—')+'</span></div>'+
     '<b>下一步</b><div>'+(pr?pr.next_steps.join(' → '):'—')+'</div>';
   renderTrend();
@@ -861,6 +861,7 @@ function pillarClass(pillar){
   if(pillar.toLowerCase().indexOf('read')>=0)return 'read';
   return 'spell';
 }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function renderMistakes(){
   var ms=S.mistakes||MISTAKES;
   document.getElementById('mistakeList').innerHTML=(ms.length?ms.map(function(m){
