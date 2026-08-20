@@ -40,6 +40,7 @@
   .tab{padding:9px 14px;cursor:pointer;border-bottom:2px solid transparent;font-size:14px;color:var(--muted)}
   .tab.on{color:var(--brand);border-bottom-color:var(--brand);font-weight:700}
   .pill{display:inline-block;font-size:12px;padding:3px 9px;border-radius:999px;background:#eef2ff;color:var(--brand);margin:2px}
+  .pill.vision{background:#f3eaff;color:#7a3fd0}
   .pill.hear{background:#fff0ea;color:#d2542a}
   .pill.read{background:#eaf0ff;color:#2f5bd0}
   .pill.spell{background:#e6f8f2;color:#119b80}
@@ -475,7 +476,8 @@ function buildProgress(lvl, phys){
       return {concept:m.c, since:new Date().toISOString().slice(0,10), pillar:m.pillar, drill:m.drill};
     }),
     current_level: lvl,
-    pillars: {hear:pill(avg([sScore('A3'),sScore('A4'),sScore('A5'),sScore('A6')])),
+    pillars: {vision:pill(avg([sScore('V3'),sScore('V4'),sScore('V5')])),
+              hear:pill(avg([sScore('A3'),sScore('A4'),sScore('A5'),sScore('A6')])),
               read:pill(avg([sScore('R3'),sScore('R4'),sScore('R5')])),
               spell:pill(avg([sScore('SP3'),sScore('SP4'),sScore('SP5')]))},
     next_steps: NEXT_STEPS[lvl]||NEXT_STEPS.L2
@@ -738,7 +740,7 @@ function renderPlan(){
   document.getElementById('progressKV').innerHTML=
     '<b>已掌握</b><div>'+(pr&&pr.mastered_topics.length?pr.mastered_topics.map(function(t){return '<span class="pill">'+t+'</span>';}).join(''):'—')+'</div>'+
     '<b>常錯</b><div>'+(pr&&pr.recurring_mistakes.length?pr.recurring_mistakes.map(function(m){return m.concept+'（'+m.pillar+'）';}).join('；'):'—')+'</div>'+
-    '<b>三支柱</b><div><span class="pill hear">Hear · '+(pr?pr.pillars.hear:'—')+'</span><span class="pill read">Read · '+(pr?pr.pillars.read:'—')+'</span><span class="pill spell">Spell · '+(pr?pr.pillars.spell:'—')+'</span></div>'+
+    '<b>四支柱</b><div><span class="pill vision">Vision · '+(pr?pr.pillars.vision:'—')+'</span><span class="pill hear">Hear · '+(pr?pr.pillars.hear:'—')+'</span><span class="pill read">Read · '+(pr?pr.pillars.read:'—')+'</span><span class="pill spell">Spell · '+(pr?pr.pillars.spell:'—')+'</span></div>'+
     '<b>下一步</b><div>'+(pr?pr.next_steps.join(' → '):'—')+'</div>';
 }
 function renderToday(){
@@ -792,6 +794,7 @@ function completeLesson(){
   savePlan(); // 課後進度即時持久化
 }
 function pillarClass(pillar){
+  if(pillar.toLowerCase().indexOf('vision')>=0)return 'vision';
   if(pillar.toLowerCase().indexOf('hear')>=0)return 'hear';
   if(pillar.toLowerCase().indexOf('read')>=0)return 'read';
   return 'spell';
@@ -809,7 +812,7 @@ function renderSched(){
   var html="";
   for(var i=0;i<7;i++){
     var on = i < d.frequency_per_week;
-    var cell = on ? ('📚 '+d.session_min+'分<br><span class="pill hear">Hear</span> <span class="pill read">Read</span> <span class="pill spell">Spell</span>') : "—";
+    var cell = on ? ('📚 '+d.session_min+'分<br><span class="pill vision">Vision</span> <span class="pill hear">Hear</span> <span class="pill read">Read</span> <span class="pill spell">Spell</span>') : "—";
     html+='<div class="day"><b>週'+days[i]+'</b>'+cell+'</div>';
   }
   document.getElementById('schedGrid').innerHTML=html;
