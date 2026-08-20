@@ -857,10 +857,12 @@ function setBoardImg(on){
   if(wb)wb.classList.toggle('has-img',!!on);   // 有圖時文字移到圖下方
 }
 function drawOnWhiteboard(p){
-  p=p||{}; var text=(p.text||'').trim(); if(!text)return;
+  p=p||{}; var text=(p.text||'').trim();
+  if(!text&&!p.clear)return;   // 允許 clear:true 不帶文字（課末清板）
   var wb=document.getElementById('whiteboard'), lines=document.getElementById('wbLines'), em=document.getElementById('wbEmoji'), g=document.getElementById('wbGen');
   if(!wb||!lines)return;
   if(p.clear||boardLines>=4){ lines.innerHTML=''; boardLines=0; boardWords=[]; curWord=null; if(em)em.style.display='none'; setBoardImg(!!(g&&g.style.display==='block')); }
+  if(!text)return;   // 純清板：清完即止
   var key=text.toLowerCase().replace(/\s+/g,' ').trim();
   var word=text.toLowerCase().replace(/[^a-z ]/g,'').trim().split(/\s+/).filter(Boolean)
     .find(function(x){ return EMOJI_WORDS[x]||EMOJI_WORDS[x.replace(/s$/,'')]; });
@@ -881,6 +883,12 @@ function maybeShowPicture(text){
   var tp=S.teachingPlan, s=S.schedule||{current_week:0,current_lesson:0,completed:[]};
   var wk=tp&&tp.weeks[s.current_week], ls=wk&&(wk.lessons[s.current_lesson]||wk.lessons[0]);
   var words=ls&&ls.words?ls.words.split('、'):[];
+  // 板面上完全沒有本課目標詞（例如課末總結清板後）→ 不自動補畫，總結不會把舊詞畫回來
+  var onBoard=words.some(function(w){
+    w=w.trim().toLowerCase();
+    return w&&w!=='—'&&boardWords.some(function(b){return b.indexOf(w)>=0;});
+  });
+  if(!onBoard)return;
   var t=(' '+text.toLowerCase()+' ');
   // 只畫「最後提到」的目標詞＝目前焦點；過渡句「we learned dog, now park!」不會把舊詞 dog 畫回來
   var pick=null, pickPos=-1;

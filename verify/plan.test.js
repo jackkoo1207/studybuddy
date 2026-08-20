@@ -215,6 +215,13 @@ vm.createContext(sandbox);
     sandbox.drawOnWhiteboard({ text: 'park', clear: true });
     sandbox.maybeShowPicture('Repeat after me: dog!');
     check('W: explicit single-word mention still draws when absent', JSON.stringify(sandbox.boardWords) === JSON.stringify(['park', 'dog']));
+    sandbox.drawOnWhiteboard({ clear: true });
+    check('W: pure clear empties board', sandbox.boardWords.length === 0 && sandbox.boardLines === 0);
+    sandbox.maybeShowPicture('We learned dog and park today! Great job!');
+    check('W: recap speech does not resurrect words on cleared board', sandbox.boardWords.length === 0);
+    sandbox.drawOnWhiteboard({ text: 'Lesson complete', clear: true });
+    sandbox.maybeShowPicture('Great job! We learned dog and park today!');
+    check('W: recap after non-word draw stays clean', sandbox.boardWords.length === 1 && sandbox.boardWords[0].indexOf('dog') < 0);
   }
 
   // ---- lesson stats: echo judging (right/wrong counts) ----
