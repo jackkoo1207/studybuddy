@@ -798,6 +798,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 body = self._read_json()
                 if not isinstance(body, dict):
                     self._send_json(400, {'error': 'bad request'}); return
+                uid = user_by_token(c, self._bearer())
+                if uid is None:
+                    self._send_json(401, {'error': 'unauthorized'}); return
                 ans = body.get('answer')
                 if not isinstance(ans, dict):
                     self._send_json(400, {'error': 'bad answer'}); return
