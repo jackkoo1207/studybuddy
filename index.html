@@ -1201,7 +1201,13 @@ function bindGcalButtons(){
   var c=document.getElementById('btn-gcal-connect');
   if(c&&!c.dataset.bound){
     c.dataset.bound='1';
-    c.addEventListener('click',function(){ location.href='/api/gcal-auth'; });
+    c.addEventListener('click',function(){
+      gcalToast('正在連到 Google…');
+      apiFetch('GET','/api/gcal-auth').then(function(r){
+        if(r.ok&&r.j&&r.j.url){ location.href=r.j.url; }
+        else{ gcalToast('連線失敗：'+(r.j&&r.j.error||'unauthorized') ,true); }
+      }).catch(function(){ gcalToast('連線失敗：無法連到伺服器',true); });
+    });
     document.getElementById('btn-gcal-import').addEventListener('click',gcalOpenImport);
     document.getElementById('btn-gcal-add').addEventListener('click',function(){
       var n=document.getElementById('gcal-course-name');

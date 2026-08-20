@@ -863,9 +863,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     'response_type': 'code', 'scope': GCAL_SCOPE,
                     'access_type': 'offline', 'prompt': 'consent', 'state': state,
                 })
-                self.send_response(302)
-                self.send_header('Location', 'https://accounts.google.com/o/oauth2/v2/auth?' + q)
-                self.end_headers()
+                # 回傳授權 URL（JSON）而不是 302：瀏覽器直接跳轉會丟失 Authorization header
+                self._send_json(200, {'url': 'https://accounts.google.com/o/oauth2/v2/auth?' + q})
+                return
             except Exception as e:
                 sys.stderr.write('[serve.py] /api/gcal-auth error: %s\n' % e)
                 self._send_json(500, {'error': 'server error', 'detail': str(e)[:200]})
