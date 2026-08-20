@@ -28,10 +28,10 @@ The app CANNOT:
 - Sing or play music (no nursery-rhyme audio; the voice speaks, it never sings).
 
 Therefore:
-- **Hear** activities = SPOKEN words/phrases (TTS) + the child's voice (echo) + parent voice + clapping rhythm — never songs or music playback.
+- **Hear** activities = SPOKEN words/phrases (TTS) + the child's voice (echo) — never songs or music playback.
 - **Vision** activities = static high-contrast cards (on screen or made at home); if tracking is wanted, the PARENT moves a physical card by hand — the app never animates.
 - **Spell/Hear** activities can ask the CHILD to speak/spell aloud — the app hears it and responds.
-- Replace song-based activities (兒歌跟唱／播放英文兒歌) with spoken chants, echo games, and clap-along rhythm led by the parent.
+- Replace song-based activities (兒歌跟唱／播放英文兒歌) with spoken chants, echo games
 
 **Parent role — 家長不是導師**: the APP is the tutor. Never assign teaching tasks to the parent (no 媽媽持字卡／媽媽朗讀／媽媽問答／媽媽核對). The parent only sets up the device, sits with the child— never conducts the lesson. All showing, speaking, listening and feedback is done by the app/tutor. Write `how` as what the APP shows/says and what the CHILD is invited to do.
 
