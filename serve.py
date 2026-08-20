@@ -353,10 +353,26 @@ def sync_agent_prompt():
         return None, '讀取 tutor-agent.md 失敗: %s' % e
     if not p:
         return None, 'tutor-agent.md 空白'
+    # 先 GET 目前 agent 設定（診斷用：確認 first_message / prompt 是否真的是舊的）
+    diag = {}
+    try:
+        greq = urllib.request.Request(
+            'https://api.elevenlabs.io/v1/convai/agents/' + AGENT_ID,
+            headers={'xi-api-key': key}, method='GET')
+        gout = json.loads(urllib.request.urlopen(greq, timeout=20).read().decode())
+        cur = (gout.get('conversation_config') or {}).get('agent') or {}
+        diag = {
+            'first_message': cur.get('first_message'),
+            'prompt_head': ((cur.get('prompt') or {}).get('prompt') or '')[:100],
+            'has_dynvar': 'lesson_context' in (cur.get('dynamic_variables') or {})
+        }
+    except Exception:
+        pass
     body = {
         'conversation_config': {
             'agent': {
                 'prompt': {'prompt': p},
+                'first_message': '哈囉小朋友！Hello! 我們一起學英文吧！',
                 'dynamic_variables': {'lesson_context': "Today's lesson plan (JSON) injected by the StudyBuddy app at session start"}
             }
         }
@@ -368,7 +384,7 @@ def sync_agent_prompt():
         method='PATCH')
     try:
         urllib.request.urlopen(req, timeout=25)
-        return 'ok', None
+        return {'ok': True, 'diag': diag}, None
     except urllib.error.HTTPError as e:
         return None, 'ElevenLabs %s: %s' % (e.code, e.read().decode()[:300])
     except Exception as e:
@@ -584,7 +600,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if err:
                 self._send_json(500, {'error': err})
                 return
-            self._send_json(200, {'ok': True})
+            self._send_json(200, ok if isinstance(ok, dict) else {'ok': True})
             return
         if path == '/api/gen-image':
             # 生成圖卡（PackyAPI）；需要登入（DB 未設定時放行，供本地開發）
