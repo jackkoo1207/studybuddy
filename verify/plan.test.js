@@ -74,6 +74,7 @@ function fakeFetch(url, opt) {
   }
   if (method === 'POST' && path === '/api/eval-pronunciation') {
     const u = user(); if (!u) return send(401, {});
+    (server.evals = server.evals || []).push(body || {});
     return send(200, { score: 8.1, segment: 8.1, fluency: 8.1, integrity: 8.9, overall: 8.1 });
   }
   if (method === 'POST' && path === '/api/common-error') {
@@ -312,6 +313,16 @@ vm.createContext(sandbox);
     sandbox.evaluatePronunciation('dog');
     await tick();
     check('P: evaluatePronunciation stores scores', sandbox.lessonStats.pron.dog && sandbox.lessonStats.pron.dog.n === 1 && sandbox.lessonStats.pron.dog.segment === 8.1 && sandbox.lessonStats.pron.dog.integrity === 8.9);
+
+    // reference word must follow the tutor per answer: dog then park
+    server.evals = [];
+    sandbox.lessonStats.pron = {};
+    sandbox.micBuf = new Float32Array(16000); sandbox.micBuf.fill(0.1);
+    sandbox.micPos = sandbox.micBuf.length;
+    sandbox.recordAgentAnswer(true, 'dog', 'dog');
+    sandbox.recordAgentAnswer(true, 'park', 'park');
+    await tick();
+    check('P: MDD reference word tracks the tutor (dog then park)', (server.evals || []).map(e => e.word).join(',') === 'dog,park' && sandbox.lessonStats.pron.dog && sandbox.lessonStats.pron.park);
   }
 
   // ---- progress memory: learned words -> 進度記憶, wrong words -> 常錯 ----
