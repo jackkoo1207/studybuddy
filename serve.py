@@ -341,6 +341,31 @@ def apply_voice_id():
         sys.stderr.write('[serve.py] voice PATCH failed: %s\n' % e)
         return None
 
+def sync_agent_prompt():
+    """把 Agent knowledge base/tutor-agent.md 同步為 ElevenLabs agent 的 system prompt。"""
+    key = _env_api_key()
+    if not key:
+        return None, '未設定 ElevenLabs key'
+    try:
+        with open(os.path.join(_KB_DIR, 'tutor-agent.md'), encoding='utf-8') as f:
+            p = f.read().strip()
+    except Exception as e:
+        return None, '讀取 tutor-agent.md 失敗: %s' % e
+    if not p:
+        return None, 'tutor-agent.md 空白'
+    req = urllib.request.Request(
+        'https://api.elevenlabs.io/v1/convai/agents/' + AGENT_ID,
+        data=json.dumps({'conversation_config': {'agent': {'prompt': {'prompt': p}}}}).encode(),
+        headers={'xi-api-key': key, 'Content-Type': 'application/json'},
+        method='PATCH')
+    try:
+        urllib.request.urlopen(req, timeout=25)
+        return 'ok', None
+    except urllib.error.HTTPError as e:
+        return None, 'ElevenLabs %s: %s' % (e.code, e.read().decode()[:300])
+    except Exception as e:
+        return None, str(e)
+
 def make_convai_signed_url():
     key = _env_api_key()
     if not key:
@@ -537,6 +562,21 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self._send_json(500, {'error': err})
                 return
             self._send_json(200, {'url': url, 'voice_id': _voice_id() or None})
+            return
+        if path == '/api/sync-agent-prompt':
+            # 把 repo 內 tutor-agent.md 同步為 ElevenLabs agent 的 system prompt（key 只在伺服器端）
+            if DB_URL:
+                with DB_LOCK:
+                    c = db()
+                    if c is None:
+                        self._send_json(503, {'error': 'database not configured'}); return
+                    if user_by_token(c, self._bearer()) is None:
+                        self._send_json(401, {'error': 'unauthorized'}); return
+            ok, err = sync_agent_prompt()
+            if err:
+                self._send_json(500, {'error': err})
+                return
+            self._send_json(200, {'ok': True})
             return
         if path == '/api/gen-image':
             # 生成圖卡（PackyAPI）；需要登入（DB 未設定時放行，供本地開發）
