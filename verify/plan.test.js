@@ -277,6 +277,14 @@ vm.createContext(sandbox);
     const raw = Buffer.from(sandbox.captureWav(0.5), 'base64');
     check('P: captureWav => 16k mono PCM16 WAV', raw.slice(0, 4).toString() === 'RIFF' && raw.slice(8, 12).toString() === 'WAVE' && raw.readUInt16LE(22) === 1 && raw.readUInt32LE(24) === 16000 && raw.readUInt16LE(34) === 16 && raw.length === 44 + 8000 * 2);
 
+    // tutor-voice leak scenario: 2s silence + 1s child voice + 1s silence => only voiced region sent
+    sandbox.micBuf = new Float32Array(16000 * 4);
+    for (let i = 0; i < sandbox.micBuf.length; i++) sandbox.micBuf[i] = (i >= 32000 && i < 48000) ? 0.4 : 0;
+    sandbox.micPos = sandbox.micBuf.length;
+    const trimmed = Buffer.from(sandbox.captureWav(4), 'base64');
+    const dataLen = (trimmed.length - 44) / 2;
+    check('P: silence-trim keeps only voiced region', dataLen <= 16000 + 2 * 2400 && dataLen >= 16000 && trimmed.readUInt32LE(40) === dataLen * 2);
+
     sandbox.lessonStats.pron = {
       dog: { n: 2, segment: 16.0, fluency: 16.0, integrity: 17.8, overall: 16.0 },
       park: { n: 1, segment: 8.0, fluency: 8.0, integrity: 8.8, overall: 8.1 }

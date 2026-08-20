@@ -958,19 +958,32 @@ function saveAnswerNow(a){
 
 /* ---- 發音評分（SpeechX MDD）：擷取麥克風尾段 → 16kHz WAV → 伺服器轉送 ---- */
 function wavWriteStr(v,off,s){ for(var i=0;i<s.length;i++)v.setUint8(off+i,s.charCodeAt(i)); }
+function trimSilence(samples){   // 簡單能量 VAD：只留孩子發聲段（含 0.15s 前後襯邊），去掉導師語音殘留／背景靜音
+  var th=0.015, start=-1, end=-1;
+  for(var i=0;i<samples.length;i++){
+    if(Math.abs(samples[i])>th){ if(start<0)start=i; end=i; }
+  }
+  if(start<0)return samples;   // 全靜音 → 原樣（MDD 會以 too short 拒絕，但答對時孩子必有聲音）
+  var pad=Math.round(0.15*16000);
+  start=Math.max(0,start-pad); end=Math.min(samples.length,end+pad);
+  return samples.slice(start,end);
+}
 function captureWav(secs){
-  var n=Math.min(micBuf.length,Math.max(8000,Math.round((secs||3.5)*16000)));
-  var out=new Int16Array(n);
+  var n=Math.min(micBuf.length,Math.max(8000,Math.round((secs||4)*16000)));
+  var win=new Float32Array(n);
   var start=micPos-n; if(start<0)start+=micBuf.length;
-  for(var i=0;i<n;i++){ var s=micBuf[(start+i)%micBuf.length]; out[i]=Math.max(-32768,Math.min(32767,Math.round(s*32767))); }
-  var buf=new ArrayBuffer(44+n*2), v=new DataView(buf);
-  wavWriteStr(v,0,'RIFF'); v.setUint32(4,36+n*2,true); wavWriteStr(v,8,'WAVE'); wavWriteStr(v,12,'fmt ');
+  for(var i=0;i<n;i++)win[i]=micBuf[(start+i)%micBuf.length];
+  var voiced=trimSilence(win);
+  var out=new Int16Array(voiced.length);
+  for(var k=0;k<voiced.length;k++){ var s=voiced[k]; out[k]=Math.max(-32768,Math.min(32767,Math.round(s*32767))); }
+  var buf=new ArrayBuffer(44+out.length*2), v=new DataView(buf);
+  wavWriteStr(v,0,'RIFF'); v.setUint32(4,36+out.length*2,true); wavWriteStr(v,8,'WAVE'); wavWriteStr(v,12,'fmt ');
   v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
   v.setUint32(24,16000,true); v.setUint32(28,32000,true); v.setUint16(32,2,true); v.setUint16(34,16,true);
-  wavWriteStr(v,36,'data'); v.setUint32(40,n*2,true);
-  for(var k=0;k<n;k++)v.setInt16(44+k*2,out[k],true);
+  wavWriteStr(v,36,'data'); v.setUint32(40,out.length*2,true);
+  for(var k2=0;k2<out.length;k2++)v.setInt16(44+k2*2,out[k2],true);
   var bytes=new Uint8Array(buf), bin='';
-  for(var k2=0;k2<bytes.length;k2++)bin+=String.fromCharCode(bytes[k2]);
+  for(var k3=0;k3<bytes.length;k3++)bin+=String.fromCharCode(bytes[k3]);
   return btoa(bin);
 }
 function evaluatePronunciation(word){
@@ -1200,7 +1213,7 @@ function openConvai(signedUrl, prompt){
 }
 function startMic(){
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ setVoiceStatus('此瀏覽器不支援麥克風'); return; }
-  navigator.mediaDevices.getUserMedia({audio:{channelCount:1,sampleRate:16000}}).then(function(stream){
+  navigator.mediaDevices.getUserMedia({audio:{channelCount:1,sampleRate:16000,echoCancellation:true,noiseSuppression:true,autoGainControl:true}}).then(function(stream){
     voice.stream=stream;
     var actx=new (window.AudioContext||window.webkitAudioContext)(); voice.ctx=actx;
     var src=actx.createMediaStreamSource(stream);
