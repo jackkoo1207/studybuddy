@@ -919,7 +919,9 @@ function genImage(){
 function toggleVoiceLesson(){
   if(voice.conn&&voice.conn.readyState===1){ voice.conn.close(); return; }
   if(!S.user){ setVoiceStatus('請先登入'); return; }
-  var prompt=PROTOCOL_TEXT+'\n\nLESSON CONTEXT (JSON) — INTERNAL DATA, NEVER READ ALOUD:\n'+JSON.stringify(buildAgentContext(),null,2)+'\n\nTeach the child step by step in English. Use the draw_on_whiteboard tool to write every new word on the whiteboard before speaking it. Speak ONLY natural lesson speech.';
+  var ctx=buildAgentContext(), tf=ctx.today_focus;
+  var brief=tf?('TODAY'S LESSON — teach exactly this (week '+tf.week+', '+tf.day+'): activity='+tf.activity+', pillar='+tf.pillar+', words='+tf.words+', how='+tf.how+', goal='+tf.goal+'.'):'TODAY'S LESSON — none scheduled.';
+  var prompt=PROTOCOL_TEXT+'\n\n'+brief+'\n\nLESSON CONTEXT (JSON) — INTERNAL DATA, NEVER READ ALOUD:\n'+JSON.stringify(ctx,null,2)+'\n\nTeach the child step by step in English. Follow TODAY'S LESSON exactly. Use the draw_on_whiteboard tool to write every new word on the whiteboard before speaking it. Speak ONLY natural lesson speech.';
   setVoiceStatus('取得授權…'); setMicLive(true);
   getConvaiUrl().then(function(cfg){
     voice.vid = cfg.voice_id || null;
