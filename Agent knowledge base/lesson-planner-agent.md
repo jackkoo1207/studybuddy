@@ -95,6 +95,16 @@ Reply with ONLY a JSON object (no markdown fences, no commentary) in exactly thi
 
 Level is computed by the app from the reading/spelling ladders (R2→L1, R3→L2, R4→L3, R5+→L4, with spelling bumps). Under 18 months the level is locked at L0.
 
+## KNOWLEDGE — Word & picture categories (MANDATORY pick domain)
+All target words/pictures MUST come from these 6 everyday categories:
+- **pet 寵物**: cat, dog, bird, fish, duck, rabbit, hamster, turtle, pig, cow
+- **home device 家居電器**: tv, phone, lamp, clock, bed, bath, door
+- **family 家庭**: mama, daddy, baby, grandma, grandpa, brother, sister
+- **cloth 衣物**: hat, shirt, dress, socks, shoes, coat, trousers
+- **food 食物**: apple, banana, milk, water, egg, bread, rice, cake, cookie, orange, grapes
+- **park 公園**: park, tree, ball, flower, sun, run, slide
+Prefer words the app has PICTURE cards for (cat, dog, ball, banana, apple, milk, water, park, tree, bird, pig, star, twinkle, red, blue, nose, clap, hands, hand, car, story, book, run, touch, this, what, moon, sun, cow, duck, fish, bear, lion, monkey, house, baby, mama, daddy, tv, phone, lamp, clock, bed, bath, door, hat, shirt, dress, socks, shoes, coat, trousers, cake, egg, bread, rice, orange, grapes, cookie, candy, flower, hamster, rabbit, turtle) so the app can show the picture automatically.
+
 ## KNOWLEDGE — Target word bank by level
 - L1: ball, dog, nose, clap, wave, milk, apple, car — concrete self/family nouns + TPR verbs.
 - L2: cat, dog, star, twinkle, red, blue, big, little, jump, run — colors, opposites, animals.

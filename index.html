@@ -308,8 +308,8 @@ var CLUE={explorer:["好動","坐不住","好奇","到處爬","愛跑"],
   thinker:["專注","愛拼圖","話少","自己玩"],
   sensory:["動手","愛摸","視覺強","要具體","怕抽象"]};
 var LEVEL_NAME={"L0":"Sound Exposure","L1":"Word Awareness","L2":"Phrase Builder","L3":"Early Talker","L4":"Pre-A1 Starters"};
-var CONTENT_TOPIC={"L0":"Nursery rhymes","L1":"Body & objects","L2":"Animals & colors","L3":"Animals at the park","L4":"At the park story"};
-var CONTENT_WORDS={"L0":["clap","wave"],"L1":["nose","ball"],"L2":["cat","dog","red"],"L3":["run","dog","ball","go"],"L4":["park","run","cat","dog"]};
+var CONTENT_TOPIC={"L0":"Nursery rhymes","L1":"Family & pets","L2":"Pets & food","L3":"Animals at the park","L4":"At the park story"};
+var CONTENT_WORDS={"L0":["clap","wave"],"L1":["mama","cat","dog","ball"],"L2":["cat","dog","apple","milk"],"L3":["dog","run","bird","tree"],"L4":["park","run","cat","dog"]};
 var CONTENT_STYLE={"L0":"聲音暴露＋律動","L1":"TPR＋實物命名","L2":"圖卡配對＋節奏跟讀","L3":"簡單問答＋Phonics","L4":"角色扮演＋故事複述"};
 
 /* 登入：純前端 localStorage 示範（無後端、無 Firebase）。 */
@@ -839,7 +839,7 @@ function copyAgentContext(){
 }
 
 /* ---- 目標詞圖卡：Twemoji（透明背景卡通、無浮水印） ---- */
-var EMOJI_WORDS={banana:'1f34c',cat:'1f431',dog:'1f436',apple:'1f34e',ball:'26bd',car:'1f697',nose:'1f443',clap:'1f44f',hands:'1f44f',hand:'1f44b',star:'1f31f',twinkle:'1f31f',bird:'1f426',pig:'1f437',park:'1f333',tree:'1f333',run:'1f3c3',story:'1f4d6',book:'1f4d6',water:'1f4a7',milk:'1f95b',red:'1f534',blue:'1f535',green:'1f7e2',yellow:'1f7e1',touch:'1f449',this:'1f449',what:'2753',la:'1f3b5',song:'1f3b5',moon:'1f31e',sun:'1f31e',cow:'1f42e',duck:'1f986',fish:'1f41f',bear:'1f43b',lion:'1f981',monkey:'1f435',house:'1f3e0',baby:'1f476',mama:'1f469',daddy:'1f468'};
+var EMOJI_WORDS={banana:'1f34c',cat:'1f431',dog:'1f436',apple:'1f34e',ball:'26bd',car:'1f697',nose:'1f443',clap:'1f44f',hands:'1f44f',hand:'1f44b',star:'1f31f',twinkle:'1f31f',bird:'1f426',pig:'1f437',park:'1f333',tree:'1f333',run:'1f3c3',story:'1f4d6',book:'1f4d6',water:'1f4a7',milk:'1f95b',red:'1f534',blue:'1f535',green:'1f7e2',yellow:'1f7e1',touch:'1f449',this:'1f449',what:'2753',la:'1f3b5',song:'1f3b5',moon:'1f31e',sun:'1f31e',cow:'1f42e',duck:'1f986',fish:'1f41f',bear:'1f43b',lion:'1f981',monkey:'1f435',house:'1f3e0',baby:'1f476',mama:'1f469',daddy:'1f468',grandma:'1f475',grandpa:'1f474',brother:'1f466',sister:'1f467',rabbit:'1f430',hamster:'1f439',turtle:'1f422',tv:'1f4fa',phone:'1f4f1',lamp:'1f4a1',clock:'1f553',bed:'1f6cf',bath:'1f6c0',door:'1f6aa',hat:'1f3a9',shirt:'1f455',dress:'1f457',socks:'1f9e6',shoes:'1f45f',coat:'1f9e5',trousers:'1f9e2',egg:'1f95a',bread:'1f35e',rice:'1f35a',cake:'1f370',cookie:'1f36a',candy:'1f36c',orange:'1f34a',grapes:'1f347',flower:'1f339'};
 function imageForWord(w){
   var code=EMOJI_WORDS[(w||'').toLowerCase().replace(/[^a-z]/g,'')];
   if(code) return 'https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/'+code+'.svg';
