@@ -1381,6 +1381,12 @@ function savePlan(){
 function saveAll(){ saveAnswers(); saveSnapshot(); savePlan(); }
 
 /* ---- 載入：伺服器端 state → S（與 SQLite 版同邏輯，只是資料來源換成 API） ---- */
+function applySnapshot(snap){
+  if(!snap||typeof snap!=='object')return;
+  ['mistakes','progress','phys','level','months','tier','freq','screen'].forEach(function(k){
+    if(snap[k]!==undefined&&snap[k]!==null)S[k]=snap[k];
+  });
+}
 function applyAnswers(ans){
   if(!ans)return;
   Object.keys(ans).forEach(function(k){var v=ans[k];
@@ -1419,6 +1425,7 @@ function afterLogin(user){
     if(Object.keys(ans).length){
       loadAnswers(ans);                       // 已填過：載入答案
       if(!computeAssessment()){ go('questionnaire'); return; } // 答案不完整（缺出生日期）
+      applySnapshot(st.snapshot);             // 載入已學會單字／常錯／進度（保存時寫入 /api/snapshot）
       var saved=loadPlan(st.plan);
       if(saved){
         S.teachingPlan=saved.plan;            // 計畫只生成一次：登入直接沿用
