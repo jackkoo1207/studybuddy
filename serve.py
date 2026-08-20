@@ -69,6 +69,25 @@ SCHEMA = [
 ]
 
 # ---------- ElevenLabs 簽名 URL（key 只留在伺服器端，瀏覽器永不接觸 key） ----------
+RECORD_ANSWER_TOOL = {
+    'type': 'client', 'name': 'record_answer',
+    'description': "Record the child's spoken answer to the current practice word. Call this AFTER EVERY child response to your echo command, word question or mini-check. Call it for BOTH correct and wrong answers — every attempt is counted in the end-of-lesson report. If the child stays silent or only says hi/yes/no outside a practice turn, do NOT call it.",
+    'response_timeout_secs': 20, 'disable_interruptions': False, 'interruption_mode': 'allow',
+    'force_pre_tool_speech': False, 'pre_tool_speech': 'auto', 'assignments': [],
+    'tool_call_sound': None, 'tool_call_sound_behavior': 'auto', 'tool_error_handling_mode': 'auto',
+    'parameters': {
+        'description': '', 'dynamic_variable': '', 'is_omitted': False,
+        'type': 'object', 'required': ['word', 'child_said', 'correct'],
+        'properties': {
+            'word': {'type': 'string', 'description': 'The target word being practiced, e.g. "dog".', 'enum': None, 'is_system_provided': False, 'dynamic_variable': '', 'allowed_values_dynamic_variable': '', 'constant_value': '', 'is_omitted': False},
+            'child_said': {'type': 'string', 'description': 'What the child said, exactly as you heard it, e.g. "park".', 'enum': None, 'is_system_provided': False, 'dynamic_variable': '', 'allowed_values_dynamic_variable': '', 'constant_value': '', 'is_omitted': False},
+            'correct': {'type': 'boolean', 'description': 'true if the child said the target word correctly (or a close mispronunciation of it), false if it was a different word.', 'enum': None, 'is_system_provided': False, 'dynamic_variable': '', 'allowed_values_dynamic_variable': '', 'constant_value': '', 'is_omitted': False},
+        }
+    },
+    'expects_response': False, 'dynamic_variables': {'dynamic_variable_placeholders': {}},
+    'execution_mode': 'immediate',
+}
+
 def _env_api_key():
     for name in ('ELEVENLABS_API_KEY', 'ElEVENLABS_TOKEN', 'ELEVENLABS_TOKEN', 'ELEVANLABS_API_KEY'):
         v = os.environ.get(name, '').strip()
@@ -368,27 +387,33 @@ def sync_agent_prompt():
         return None, '讀取 tutor-agent.md 失敗: %s' % e
     if not p:
         return None, 'tutor-agent.md 空白'
-    # 先 GET 目前 agent 設定（診斷用：確認 first_message / prompt 是否真的是舊的）
+    # 先 GET 目前 agent 設定（診斷用：確認 first_message / prompt / tools 現況）
     diag = {}
+    tools = []
     try:
         greq = urllib.request.Request(
             'https://api.elevenlabs.io/v1/convai/agents/' + AGENT_ID,
             headers={'xi-api-key': key}, method='GET')
         gout = json.loads(urllib.request.urlopen(greq, timeout=20).read().decode())
         cur = (gout.get('conversation_config') or {}).get('agent') or {}
+        cur_prompt = cur.get('prompt') or {}
+        tools = list(cur_prompt.get('tools') or [])
+        if not any((t or {}).get('name') == 'record_answer' for t in tools):
+            tools.append(RECORD_ANSWER_TOOL)   # 合併新增 client tool（保留 draw_on_whiteboard）
         diag = {
             'first_message': cur.get('first_message'),
             'prompt_head': ((cur.get('prompt') or {}).get('prompt') or '')[:100],
             'has_dynvar': 'lesson_context' in (cur.get('dynamic_variables') or {}),
             'has_turn_taking': 'TURN-TAKING' in p,   # 本機推送的 prompt 是否含強制輪替章節
             'prompt_len': len(p),
+            'tool_names': [t.get('name') for t in tools],
         }
     except Exception:
         pass
     body = {
         'conversation_config': {
             'agent': {
-                'prompt': {'prompt': p},
+                'prompt': {'prompt': p, 'tools': tools},
                 'first_message': '哈囉小朋友！Hello! 我們一起學英文吧！',
                 'dynamic_variables': {'lesson_context': "Today's lesson plan (JSON) injected by the StudyBuddy app at session start"}
             }

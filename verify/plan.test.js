@@ -234,6 +234,18 @@ vm.createContext(sandbox);
     check('S: drawing a word sets current word', sandbox.curWord === 'park');
   }
 
+  // ---- lesson stats: agent record_answer tool path (authoritative) ----
+  {
+    sandbox.agentToolMode = false;
+    sandbox.lessonStats = { right: 0, wrong: 0, attempts: [] };
+    sandbox.recordAgentAnswer(true, 'dog', 'dog');
+    check('T: agent tool correct => right + tool mode on', sandbox.lessonStats.right === 1 && sandbox.lessonStats.wrong === 0 && sandbox.lessonStats.attempts[0].ok === true && sandbox.agentToolMode === true);
+    sandbox.recordAgentAnswer(false, 'dog', 'park');
+    check('T: agent tool wrong => wrong counted', sandbox.lessonStats.wrong === 1 && sandbox.lessonStats.right === 1 && sandbox.lessonStats.attempts[1].ok === false);
+    sandbox.recordAgentAnswer(true, 'park', 'park');
+    check('T: second word counted too', sandbox.lessonStats.right === 2 && sandbox.lessonStats.attempts.length === 3);
+  }
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('HARNESS ERROR:', e); process.exit(2); });

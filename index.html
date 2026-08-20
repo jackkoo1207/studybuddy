@@ -851,7 +851,7 @@ function imageForWord(w){
   return null;
 }
 var boardLines=0, boardWords=[], curWord=null;
-var lessonStats={right:0,wrong:0,attempts:[]}, lessonHadActivity=false;
+var lessonStats={right:0,wrong:0,attempts:[]}, lessonHadActivity=false, agentToolMode=false;
 function setBoardImg(on){
   var wb=document.getElementById('whiteboard');
   if(wb)wb.classList.toggle('has-img',!!on);   // 有圖時文字移到圖下方
@@ -922,6 +922,11 @@ function recordChildAnswer(spoken){
   if(ok)lessonStats.right++; else lessonStats.wrong++;
   lessonStats.attempts.push({word:curWord,said:t.slice(0,60),ok:ok,ts:Date.now()});
 }
+function recordAgentAnswer(ok,word,said){   // agent 透過 record_answer 工具回報作答（權威來源）
+  agentToolMode=true; lessonHadActivity=true;
+  if(ok)lessonStats.right++; else lessonStats.wrong++;
+  lessonStats.attempts.push({word:(word||curWord||''),said:(said||'').slice(0,60),ok:!!ok,ts:Date.now()});
+}
 function finishLessonStats(){
   var n=lessonStats.attempts.length;
   if(!n&&!lessonHadActivity)return;                          // 沒有作答也沒有教學活動 → 不顯示
@@ -986,7 +991,7 @@ function genImage(){
 function toggleVoiceLesson(){
   if(voice.conn&&voice.conn.readyState===1){ voice.conn.close(); return; }
   if(!S.user){ setVoiceStatus('請先登入'); return; }
-  lessonStats={right:0,wrong:0,attempts:[]}; lessonHadActivity=false;   // 新一課：重置作答統計
+  lessonStats={right:0,wrong:0,attempts:[]}; lessonHadActivity=false; agentToolMode=false;   // 新一課：重置作答統計
   var lr=document.getElementById('lessonResult'); if(lr)lr.classList.add('hidden');
   var ctx=buildAgentContext(), tf=ctx.today_focus;
   var brief=tf?("TODAY'S LESSON — teach exactly this (week "+tf.week+", "+tf.day+"): activity="+tf.activity+", pillar="+tf.pillar+", words="+tf.words+", how="+tf.how+", goal="+tf.goal+"."):"TODAY'S LESSON — none scheduled.";
@@ -1037,7 +1042,7 @@ function openConvai(signedUrl, prompt){
       else if(d.type==='user_transcript'||d.type==='user_transcript_event'||d.type==='user_transcript_event_data'){
         var up=uev||d.user_transcript||d;
         var u=(up&&typeof up==='object')?(up.user_transcript||up.text||''):(up||'');
-        if(u){ pushChat(S.baby||'寶寶', u); recordChildAnswer(u); }
+        if(u&&!agentToolMode){ pushChat(S.baby||'寶寶', u); recordChildAnswer(u); }   // tool 模式後以 record_answer 為準，避免重複計
       }
       else if(d.type==='conversation_initiation_metadata'){ setVoiceStatus('已連接 · '+((cev&&cev.conversation_id||'').slice(0,8))); }
       else if(d.type==='client_tool_call'){
@@ -1045,7 +1050,8 @@ function openConvai(signedUrl, prompt){
         var tc=te.tool_call_id||'';
         var tn=te.tool_name||'';
         var tp=te.parameters||{};
-        if(tn==='draw_on_whiteboard'){ lessonHadActivity=true; drawOnWhiteboard(tp); pushChat('📋 白板', '"'+(tp.text||'')+'"'); }
+        if(tn==='record_answer'){ recordAgentAnswer(tp.correct,tp.word,tp.child_said||tp.said); pushChat(S.baby||'👶 寶寶', '"'+(tp.child_said||tp.said||'')+'" → '+(tp.correct?'✅ 正確':'❌ 錯誤')); }
+        else if(tn==='draw_on_whiteboard'){ lessonHadActivity=true; drawOnWhiteboard(tp); pushChat('📋 白板', '"'+(tp.text||'')+'"'); }
         try{ ws.send(JSON.stringify({type:'client_tool_result',tool_call_id:tc,result:'ok',is_error:false})); }catch(e){}
       }
       else if(d.type==='ping'){ try{ ws.send(JSON.stringify({type:'pong',event_id:(d.ping_event&&d.ping_event.event_id)||0})); }catch(e){} }
@@ -1123,7 +1129,7 @@ function sendStudentText(){
     inp.value=''; return;
   }
   pushChat(S.baby||'👶 寶寶', t);
-  recordChildAnswer(t);   // 打字作答也算（text user_message 不會回傳 user_transcript 事件）
+  if(!agentToolMode)recordChildAnswer(t);   // 打字作答也算（text 不會回傳 transcript；tool 模式則以 agent 為準）
   try{ voice.conn.send(JSON.stringify({type:'user_message',text:t})); }catch(e){}
   inp.value='';
 }
