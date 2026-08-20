@@ -357,8 +357,7 @@ def sync_agent_prompt():
         'conversation_config': {
             'agent': {
                 'prompt': {'prompt': p},
-                'dynamic_variables': [{'name': 'lesson_context',
-                                       'description': "Today's lesson plan (JSON) injected by the StudyBuddy app at session start"}]
+                'dynamic_variables': {'lesson_context': {'description': "Today's lesson plan (JSON) injected by the StudyBuddy app at session start", 'value': ''}}
             }
         }
     }
