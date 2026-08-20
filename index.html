@@ -238,6 +238,8 @@
         <div id="weekPlan"></div>
         <h3>進度記憶</h3>
         <div class="kv" id="progressKV"></div>
+        <h3>學習趨勢</h3>
+        <div id="trendChart"></div>
       </div>
 
       <!-- TAB: CHAT (白板課堂) -->
@@ -357,6 +359,7 @@ function tab(t){
   ['plan','chat','mistake','sched','settings'].forEach(function(x){
     document.getElementById('tab-'+x).classList.toggle('hidden',x!==t);
   });
+  if(t==='plan') renderPlan();      // 每次切到進度頁都重新渲染（課後已學會單字/常錯即時更新）
   if(t==='settings') renderSettings();
 }
 function renderSettings(){
@@ -755,6 +758,37 @@ function renderPlan(){
     '<b>常錯</b><div>'+(mistakes.length?mistakes.map(function(m){return m.c+'（'+m.pillar+'）';}).join('；'):'—')+'</div>'+
     '<b>四支柱</b><div><span class="pill vision">Vision · '+(pr?pr.pillars.vision:'—')+'</span><span class="pill hear">Hear · '+(pr?pr.pillars.hear:'—')+'</span><span class="pill read">Read · '+(pr?pr.pillars.read:'—')+'</span><span class="pill spell">Spell · '+(pr?pr.pillars.spell:'—')+'</span></div>'+
     '<b>下一步</b><div>'+(pr?pr.next_steps.join(' → '):'—')+'</div>';
+  renderTrend();
+}
+function svgLineChart(labels,pron,acc){
+  var W=560,H=180,pad=34;
+  var maxN=Math.max(1,labels.length-1);
+  var x=function(i){ return pad+(W-pad*2)*(maxN?i/maxN:0); };
+  var y=function(v){ return H-pad-(H-pad*2)*(v/10); };
+  var pts=function(arr){ return arr.map(function(v,i){ return (v==null?'':x(i)+','+y(v)); }).filter(Boolean).join(' '); };
+  var html='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;max-width:560px;background:#fff;border:1px solid var(--line);border-radius:10px">';
+  for(var g=0;g<=10;g+=5){ html+='<line x1="'+pad+'" y1="'+y(g)+'" x2="'+(W-pad)+'" y2="'+y(g)+'" stroke="#eee"/>'; html+='<text x="4" y="'+(y(g)+4)+'" font-size="9" fill="#999">'+g+'</text>'; }
+  labels.forEach(function(l,i){ html+='<text x="'+x(i)+'" y="'+(H-12)+'" font-size="9" fill="#666" text-anchor="middle">'+l+'</text>'; });
+  if(pts(pron))html+='<polyline points="'+pts(pron)+'" fill="none" stroke="#4a7dff" stroke-width="2"/>';
+  if(pts(acc))html+='<polyline points="'+pts(acc)+'" fill="none" stroke="#2a9d5c" stroke-width="2" stroke-dasharray="4 3"/>';
+  pron.forEach(function(v,i){ if(v!=null)html+='<circle cx="'+x(i)+'" cy="'+y(v)+'" r="3" fill="#4a7dff"/>'; });
+  acc.forEach(function(v,i){ if(v!=null)html+='<circle cx="'+x(i)+'" cy="'+y(v)+'" r="3" fill="#2a9d5c"/>'; });
+  html+='</svg><div style="font-size:11px;color:var(--muted);margin-top:4px">'+
+    '<span style="color:#4a7dff">— 發音分數（音准×0.5＋流利度×0.3＋完整度×0.2）</span> ｜ '+
+    '<span style="color:#2a9d5c">- - 作答正確率（答對/總題 ×10）</span></div>';
+  return html;
+}
+function renderTrend(){
+  var box=document.getElementById('trendChart'); if(!box)return;
+  if(!S.user){ box.innerHTML=''; return; }
+  apiFetch('GET','/api/lesson-results').then(function(r){
+    if(!r.ok||!r.j||!r.j.results||!r.j.results.length){ box.innerHTML='<div class="note">尚無課堂紀錄 — 完成一課後這裡會顯示發音與作答趨勢。</div>'; return; }
+    var rows=r.j.results.slice().reverse();   // 舊 → 新
+    var labels=rows.map(function(x,i){ return x.day||('D'+(i+1)); });
+    var pron=rows.map(function(x){ return x.pron_final!=null?+x.pron_final:null; });
+    var acc=rows.map(function(x){ return x.total?+(x.right_count/x.total*10).toFixed(1):null; });
+    box.innerHTML=svgLineChart(labels,pron,acc);
+  }).catch(function(){ box.innerHTML=''; });
 }
 function renderToday(){
   var box=document.getElementById('todayCard'); if(!box)return;
@@ -781,25 +815,38 @@ function renderToday(){
 function renderWeeks(){
   var box=document.getElementById('weekPlan'); if(!box)return;
   var plan=S.teachingPlan; if(!plan){ box.innerHTML=''; return; }
+  var s=S.schedule||{current_week:0,current_lesson:0,completed:[],results:{}};
   box.innerHTML=plan.weeks.map(function(w){
     return '<div style="border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px">'+
       '<b>第 '+w.week+' 週 · '+w.focus+'</b>'+
-      w.lessons.map(function(l){
+      w.lessons.map(function(l,li){
+        var done=s.completed.indexOf('第'+w.week+'週 '+l.day+' '+l.activity)>=0
+          || (w.week-1<s.current_week) || (w.week-1===s.current_week&&li<s.current_lesson);
+        var res=s.results&&s.results['w'+w.week+'d'+(li+1)];
         return '<div style="margin:8px 0 0;font-size:13px">'
+          +(done?'<span class="pill strong">✓</span> ':'')
           +'<span class="pill '+pillarClass(l.pillar)+'">'+l.pillar+'</span> '
           +'<b>'+l.day+'</b> '+l.activity
+          +(res?' <span class="pill">答對 '+res.right+'/'+res.total+'</span>':'')
           +'<div style="color:var(--muted);font-size:12px">目標詞：'+(l.words||'—')+' ｜ '+l.how+' ｜ '+l.goal+'</div></div>';
       }).join('')+
       '</div>';
   }).join('');
 }
 function completeLesson(){
+  tab('chat');   // 完成本課按鈕 → 前往白板課堂上課（不再自動完成）；課堂結束（關麥）才推進下一課
+}
+function advanceLesson(){   // 語音課堂結束（ws onclose）時：推進到下一課 + 記錄本課成績
+  if(!lessonHadActivity)return;   // 沒實際教學就不推進
   var plan=S.teachingPlan, s=S.schedule||{current_week:0,current_lesson:0,completed:[]};
   if(!plan)return;
   var wk=plan.weeks[s.current_week];
   if(!wk)return;
   var ls=wk.lessons[s.current_lesson]||wk.lessons[0];
   s.completed.push('第'+(s.current_week+1)+'週 '+ls.day+' '+ls.activity);
+  s.results=s.results||{};
+  var n=lessonStats.attempts.length;
+  if(n)s.results['w'+(s.current_week+1)+'d'+(s.current_lesson+1)]={right:lessonStats.right,total:n};
   s.current_lesson++;
   if(s.current_lesson>=wk.lessons.length){ s.current_lesson=0; s.current_week++; }
   S.schedule=s;
@@ -996,14 +1043,15 @@ function evaluatePronunciation(word){
     p.n++; p.segment+=r.j.segment||0; p.fluency+=r.j.fluency||0; p.integrity+=r.j.integrity||0; p.overall+=r.j.overall||0;
   }).catch(function(){});
 }
+function pronFinal(seg,flu,itg){ return +(seg*0.5+flu*0.3+itg*0.2).toFixed(1); }   // SpeechX 公式：音准×0.5＋流利度×0.3＋完整度×0.2
 function pronSummary(){
-  var P=lessonStats.pron||{}, out={words:[],segment:0,fluency:0,integrity:0,overall:0,n:0};
+  var P=lessonStats.pron||{}, out={words:[],segment:0,fluency:0,integrity:0,overall:0,final:0,n:0};
   Object.keys(P).forEach(function(w){
     var p=P[w], seg=+(p.segment/p.n).toFixed(1), flu=+(p.fluency/p.n).toFixed(1), itg=+(p.integrity/p.n).toFixed(1), ov=+(p.overall/p.n).toFixed(1);
-    out.words.push({word:w,segment:seg,fluency:flu,integrity:itg,overall:ov,n:p.n});
+    out.words.push({word:w,segment:seg,fluency:flu,integrity:itg,overall:ov,final:pronFinal(seg,flu,itg),n:p.n});
     out.segment+=seg; out.fluency+=flu; out.integrity+=itg; out.overall+=ov; out.n++;
   });
-  if(out.n){ out.segment=+(out.segment/out.n).toFixed(1); out.fluency=+(out.fluency/out.n).toFixed(1); out.integrity=+(out.integrity/out.n).toFixed(1); out.overall=+(out.overall/out.n).toFixed(1); }
+  if(out.n){ out.segment=+(out.segment/out.n).toFixed(1); out.fluency=+(out.fluency/out.n).toFixed(1); out.integrity=+(out.integrity/out.n).toFixed(1); out.overall=+(out.overall/out.n).toFixed(1); out.final=pronFinal(out.segment,out.fluency,out.integrity); }
   return out;
 }
 function detectCommonErrors(){
@@ -1084,11 +1132,12 @@ function markProgressMemory(){
 function saveLessonResult(){
   if(!S.user||!lessonStats.attempts.length)return;
   var ctx=buildAgentContext(), tf=ctx.today_focus||{};
-  var n=lessonStats.attempts.length;
+  var n=lessonStats.attempts.length, ps=pronSummary();
   apiFetch('PUT','/api/lesson-result',{result:{
     week_num:tf.week||0, day:tf.day||'', activity:tf.activity||'', pillar:tf.pillar||'', words:tf.words||'',
     right_count:lessonStats.right, wrong_count:lessonStats.wrong, total:n,
     accuracy:Math.round(lessonStats.right/n*1000)/10,
+    pron_segment:ps.segment||0, pron_fluency:ps.fluency||0, pron_integrity:ps.integrity||0, pron_final:ps.final||0,
     detail:lessonStats.attempts.slice(-50)
   }}).catch(function(){});
 }
@@ -1205,6 +1254,7 @@ function openConvai(signedUrl, prompt){
       setMicLive(false);
       if(!gotMeta&&tries<2){ setVoiceStatus('重連中…'); setTimeout(connect,1200); return; } // 平台偶發 init 失敗：重試一次
       finishLessonStats();   // 課堂結束：顯示答對／答錯並存入資料庫
+      advanceLesson();       // 推進到下一課（今日焦點更新）
       setVoiceStatus('已斷線'); voice.conn=null;
     };
     ws.onerror=function(){ setVoiceStatus('連接錯誤'); };

@@ -66,6 +66,10 @@ SCHEMA = [
   accuracy REAL NOT NULL DEFAULT 0,
   detail JSONB NOT NULL DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ DEFAULT now())""",
+"""ALTER TABLE lesson_results ADD COLUMN IF NOT EXISTS pron_segment REAL NOT NULL DEFAULT 0""",
+"""ALTER TABLE lesson_results ADD COLUMN IF NOT EXISTS pron_fluency REAL NOT NULL DEFAULT 0""",
+"""ALTER TABLE lesson_results ADD COLUMN IF NOT EXISTS pron_integrity REAL NOT NULL DEFAULT 0""",
+"""ALTER TABLE lesson_results ADD COLUMN IF NOT EXISTS pron_final REAL NOT NULL DEFAULT 0""",
 """CREATE TABLE IF NOT EXISTS lesson_answers(
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -694,13 +698,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         return
                     with _cur(c) as cur:
                         cur.execute(
-                            'SELECT lesson_date,week_num,day,activity,pillar,words,right_count,wrong_count,total,accuracy,created_at '
+                            'SELECT lesson_date,week_num,day,activity,pillar,words,right_count,wrong_count,total,accuracy,pron_segment,pron_fluency,pron_integrity,pron_final,created_at '
                             'FROM lesson_results WHERE user_id=%s ORDER BY id DESC LIMIT 50', (uid,))
                         rows = cur.fetchall()
                 self._send_json(200, {'results': [{
                     'lesson_date': str(r[0]), 'week_num': r[1], 'day': r[2], 'activity': r[3],
                     'pillar': r[4], 'words': r[5], 'right_count': r[6], 'wrong_count': r[7],
-                    'total': r[8], 'accuracy': r[9], 'created_at': str(r[10]),
+                    'total': r[8], 'accuracy': r[9], 'pron_segment': r[10], 'pron_fluency': r[11],
+                    'pron_integrity': r[12], 'pron_final': r[13], 'created_at': str(r[14]),
                 } for r in rows]})
             except Exception as e:
                 sys.stderr.write('[serve.py] /api/lesson-results error: %s\n' % e)
@@ -1020,13 +1025,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     self._send_json(400, {'error': 'bad result'}); return
                 with _cur(c) as cur:
                     cur.execute(
-                        'INSERT INTO lesson_results(user_id,week_num,day,activity,pillar,words,right_count,wrong_count,total,accuracy,detail) '
-                        'VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb)',
+                        'INSERT INTO lesson_results(user_id,week_num,day,activity,pillar,words,right_count,wrong_count,total,accuracy,pron_segment,pron_fluency,pron_integrity,pron_final,detail) '
+                        'VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb)',
                         (uid, int(res.get('week_num') or 0), str(res.get('day') or '')[:50],
                          str(res.get('activity') or '')[:100], str(res.get('pillar') or '')[:50],
                          str(res.get('words') or '')[:200],
                          int(res.get('right_count') or 0), int(res.get('wrong_count') or 0),
                          int(res.get('total') or 0), float(res.get('accuracy') or 0),
+                         float(res.get('pron_segment') or 0), float(res.get('pron_fluency') or 0),
+                         float(res.get('pron_integrity') or 0), float(res.get('pron_final') or 0),
                          json.dumps(res.get('detail') or [], ensure_ascii=False)))
                 c.commit()
                 self._send_json(200, {'ok': True})

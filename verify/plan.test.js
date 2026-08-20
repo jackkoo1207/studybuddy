@@ -82,6 +82,10 @@ function fakeFetch(url, opt) {
     (server.commonErrors = server.commonErrors || []).push(body.error || body);
     return send(200, { ok: true });
   }
+  if (method === 'GET' && path === '/api/lesson-results') {
+    const u = user(); if (!u) return send(401, {});
+    return send(200, { results: server.lessonResults || [] });
+  }
   return send(404, { error: 'not found' });
 }
 
@@ -173,10 +177,23 @@ vm.createContext(sandbox);
     Object.assign(sandbox.S, bak);
   }
 
-  // ---- flow 2: complete lesson => schedule advances + persisted server-side ----
-  vm.runInContext('completeLesson();', sandbox);
+  // ---- flow 2: lesson ends (voice session) => schedule advances + persisted server-side ----
+  sandbox.lessonHadActivity = true;
+  sandbox.lessonStats.right = 2; sandbox.lessonStats.wrong = 1;
+  sandbox.lessonStats.attempts = [{ word: 'dog', ok: true }, { word: 'dog', ok: true }, { word: 'park', ok: false }];
+  vm.runInContext('advanceLesson();', sandbox);
   await tick();
   check('2: schedule advanced + persisted', sandbox.S.schedule.current_lesson === 1 && sandbox.S.schedule.completed.length === 1 && store('t1').plan.schedule.current_lesson === 1);
+  check('2: lesson result recorded in schedule', JSON.stringify(sandbox.S.schedule.results['w1d1']) === JSON.stringify({ right: 2, total: 3 }));
+  // 完成本課 button now navigates to classroom, does NOT auto-finish
+  sandbox.S.schedule = { current_week: 0, current_lesson: 0, completed: [] };
+  vm.runInContext('completeLesson();', sandbox);
+  check('2: completeLesson navigates without advancing', sandbox.S.schedule.current_lesson === 0);
+  // week plan shows tick + 答對 X/Y for completed lesson
+  sandbox.S.schedule = { current_week: 0, current_lesson: 1, completed: ['第1週 Day 1 活動0'], results: { 'w1d1': { right: 2, total: 3 } } };
+  sandbox.renderWeeks();
+  check('2: week plan shows tick + 答對 score', sandbox.document.getElementById('weekPlan').innerHTML.indexOf('✓') >= 0 && sandbox.document.getElementById('weekPlan').innerHTML.indexOf('答對 2/3') >= 0);
+  sandbox.S.schedule = { current_week: 0, current_lesson: 0, completed: [] };
 
   // ---- flow 3: re-login => skip questionnaire, plan NOT regenerated ----
   sandbox.S = {};
@@ -292,6 +309,7 @@ vm.createContext(sandbox);
     };
     const ps = sandbox.pronSummary();
     check('P: pronSummary per-word averages + net', ps.words.length === 2 && ps.words[0].word === 'dog' && ps.words[0].segment === 8.0 && ps.words[0].integrity === 8.9 && ps.n === 2 && ps.segment === 8.0 && ps.fluency === 8.0 && ps.integrity === 8.9);
+    check('P: final score uses SpeechX formula (seg×0.5+flu×0.3+itg×0.2)', sandbox.pronFinal(8, 8, 9) === 8.2 && ps.words[0].final === 8.2);
 
     sandbox.lessonStats.attempts = [
       { word: 'dog', ok: false }, { word: 'dog', ok: false }, { word: 'dog', ok: false },
@@ -323,6 +341,15 @@ vm.createContext(sandbox);
     sandbox.recordAgentAnswer(true, 'park', 'park');
     await tick();
     check('P: MDD reference word tracks the tutor (dog then park)', (server.evals || []).map(e => e.word).join(',') === 'dog,park' && sandbox.lessonStats.pron.dog && sandbox.lessonStats.pron.park);
+
+    // trend chart: pron final + accuracy from lesson-results
+    server.lessonResults = [
+      { day: 'Day 1', right_count: 2, total: 3, accuracy: 66.7, pron_final: 8.1 },
+      { day: 'Day 2', right_count: 3, total: 3, accuracy: 100, pron_final: 8.9 }
+    ];
+    sandbox.renderTrend();
+    await tick();
+    check('P: trend chart renders pron + accuracy lines', sandbox.document.getElementById('trendChart').innerHTML.indexOf('svg') >= 0 && sandbox.document.getElementById('trendChart').innerHTML.indexOf('發音分數') >= 0 && sandbox.document.getElementById('trendChart').innerHTML.indexOf('Day 2') >= 0);
   }
 
   // ---- progress memory: learned words -> 進度記憶, wrong words -> 常錯 ----
