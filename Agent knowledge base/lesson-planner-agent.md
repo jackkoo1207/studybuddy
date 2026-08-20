@@ -33,7 +33,7 @@ Therefore:
 - **Spell/Hear** activities can ask the CHILD to speak/spell aloud — the app hears it and responds.
 - Replace song-based activities (兒歌跟唱／播放英文兒歌) with spoken chants, echo games, and clap-along rhythm led by the parent.
 
-**Parent role — 家長不是導師**: the APP is the tutor. Never assign teaching tasks to the parent (no 媽媽持字卡／媽媽朗讀／媽媽問答／媽媽核對). The parent only sets up the device, sits with the child, and may play ALONG as a peer (clap together, join in actions) — never conducts the lesson. All showing, speaking, listening and feedback is done by the app/tutor. Write `how` as what the APP shows/says and what the CHILD is invited to do.
+**Parent role — 家長不是導師**: the APP is the tutor. Never assign teaching tasks to the parent (no 媽媽持字卡／媽媽朗讀／媽媽問答／媽媽核對). The parent only sets up the device, sits with the child— never conducts the lesson. All showing, speaking, listening and feedback is done by the app/tutor. Write `how` as what the APP shows/says and what the CHILD is invited to do.
 
 **Movement — 動作只能鼓勵，不能要求驗證**: the app CANNOT see the child (no camera) — it never observes running, jumping, pointing or dancing. Physical movement is only ever an ENCOURAGEMENT from the tutor's voice (e.g. after spelling run, the tutor says "Run! 跑起來!" and the child moves for fun). Never design activities that depend on observing the child's physical actions; there is no check, no waiting, no verification — the lesson continues regardless.
 
@@ -89,10 +89,10 @@ All levels follow ONE pattern: **the APP does the teaching** — it shows static
 
 | Level | Name | Age ref | App does | Child does | Sample activities (zh) |
 |---|---|---|---|---|---|
-| L0 | Sound Exposure | 0–18m | shows high-contrast static word cards; speaks single sounds/words | looks at cards; listens; turns to sound; babbles back | 字卡凝視、聽聲轉頭、聲音暴露、拍手節奏 |
-| L1 | Word Awareness | 18–30m | shows picture + word cards; speaks each word slowly | looks; points at the on-screen picture; echoes the word | 圖卡認讀、跟讀單字、聽聲指圖 |
-| L2 | Phrase Builder | 30–42m | shows picture/word pairs; speaks two-word phrases | matches picture↔word on screen; echoes phrases; claps syllables | 圖卡配對、節奏跟讀、簡單問答 What is this? |
-| L3 | Early Talker | 42–54m | shows words; asks questions; listens for answers | answers aloud; says first sounds; claps syllables | 數字人問答、Phonics 首音、主題詞彙、字形指認 |
+| L0 | Sound Exposure | 0–18m | shows high-contrast static word cards; speaks single sounds/words | looks at cards; listens; turns to sound; babbles back | 字卡凝視、聲音暴露 |
+| L1 | Word Awareness | 18–30m | shows picture + word cards; speaks each word slowly |echoes the word | 圖卡認讀、跟讀單字、聽聲指圖 |
+| L2 | Phrase Builder | 30–42m | shows picture/word pairs; speaks two-word phrases | matches picture↔word on screen; echoes phrases;  | 圖卡配對、節奏跟讀、簡單問答 What is this? |
+| L3 | Early Talker | 42–54m | shows words; asks questions; listens for answers | answers aloud; says first sounds; | 數字人問答、Phonics 首音、主題詞彙、字形指認 |
 | L4 | Pre-A1 Starters | 54–72m | shows sentence cards + story pictures; listens for reading/spelling | reads words aloud; retells from pictures; spells aloud (c-a-t) | 角色扮演對話、故事複述、拼讀輸出、白板指讀 |
 
 Level is computed by the app from the reading/spelling ladders (R2→L1, R3→L2, R4→L3, R5+→L4, with spelling bumps). Under 18 months the level is locked at L0.
@@ -115,12 +115,12 @@ Prefer words the app has PICTURE cards for (cat, dog, ball, banana, apple, milk,
 Expand with theme nouns (animals, food, body, family, colors, actions). Never use abstract or school vocabulary at L1–L2.
 
 ## KNOWLEDGE — Vision pillar (視覺通路)
-The visual input channel that feeds reading: high-contrast big RED cards held at 20–30 cm, slow horizontal tracking (the PARENT moves a physical card by hand — the app shows only static cards), very short gazing sessions (seconds, not minutes). Weak 視覺 → Vision reinforcement games (card gazing / tracking). Letter shapes come only after whole-word gazing is solid. All vision activities are screen-free.
+The visual input channel that feeds reading: the app shows only static cards, very short gazing sessions (seconds, not minutes). Weak 視覺 → Vision reinforcement games (card gazing / tracking). Letter shapes come only after whole-word gazing is solid. All vision activities are screen-free.
 
 ## KNOWLEDGE — How babies learn to read & spell (Doman method)
 - **Reading ladder** (assessment R1–R7): 凝視字卡 → 分辨字卡 → 認單字 → 詞組 → 短句 → 句子 → 小書. Whole words FIRST (ball before b); letters are abstract symbols — teach them last.
 - **Spelling ladder** (SP1–SP7): 模仿字母音 → 分辨字母音 → 首音 → 音節拍手 → CVC 拼讀 → 口頭拼字 → 書寫. Spelling is strictly AFTER reading: L0–L2 no spelling; L3 introduces letters + CVC; L4 systematic spelling.
-- **Card spec** for parent activities: white card, big RED print (later normal black), lowercase print — NEVER cursive. Word cards 3″ (7.6 cm) letter height; phrases 2″; sentences 1.5″→1″.
+- **Card spec** white card, black print, lowercase print — NEVER cursive. Word cards 3″ (7.6 cm) letter height; phrases 2″; sentences 1.5″→1″.
 - **Session style**: extremely short (seconds per card set), fast, happy, no testing, no food rewards — praise and hugs only. Stop BEFORE the child wants to stop (boredom is the only danger signal).
 - **CJK caution**: English letters must never be mixed with 漢語拼音 rules; build whole-word visual memory first.
 
