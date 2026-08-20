@@ -190,6 +190,28 @@ vm.createContext(sandbox);
   check('6: avatarKV/physKV/routingNote gone', html.indexOf('id="avatarKV"') < 0 && html.indexOf('id="physKV"') < 0 && html.indexOf('id="routingNote"') < 0);
   check('6: todayCard + weekPlan present', html.indexOf('id="todayCard"') >= 0 && html.indexOf('id="weekPlan"') >= 0);
 
+  // ---- whiteboard: transition speech must NOT resurrect the old word ----
+  {
+    const wbLines = sandbox.document.getElementById('wbLines');
+    wbLines.appendChild = function (c) { this.innerHTML += (c.textContent || ''); };
+    sandbox.S.teachingPlan = { generated_at: 'x', weeks: [{ week: 1, focus: 'f', lessons: [{ day: 'Day 1', pillar: 'Vision', activity: '圖詞配對', how: 'h', words: 'dog、park', goal: 'g' }] }] };
+    sandbox.S.schedule = { current_week: 0, current_lesson: 0, completed: [] };
+    sandbox.drawOnWhiteboard({ clear: true });
+    check('W: board starts empty', sandbox.boardLines === 0 && sandbox.boardWords.length === 0);
+    sandbox.drawOnWhiteboard({ text: 'dog' });
+    check('W: tool draw dog => 1 line', sandbox.boardLines === 1 && JSON.stringify(sandbox.boardWords) === JSON.stringify(['dog']));
+    sandbox.maybeShowPicture('We learned dog, now let us learn park!');
+    check('W: transition speech draws park (not blocked by dog)', JSON.stringify(sandbox.boardWords) === JSON.stringify(['dog', 'park']));
+    sandbox.maybeShowPicture('Great! Dog and park!');
+    check('W: repeat mention does not duplicate lines', sandbox.boardLines === 2 && sandbox.boardWords.length === 2);
+    sandbox.drawOnWhiteboard({ text: 'park', clear: true });   // agent 開新單字：清板＋畫 park
+    sandbox.maybeShowPicture('We learned dog, now let us learn park!');
+    check('W: after clear, transition speech does NOT resurrect dog', JSON.stringify(sandbox.boardWords) === JSON.stringify(['park']));
+    sandbox.drawOnWhiteboard({ text: 'park', clear: true });
+    sandbox.maybeShowPicture('Repeat after me: dog!');
+    check('W: explicit single-word mention still draws when absent', JSON.stringify(sandbox.boardWords) === JSON.stringify(['park', 'dog']));
+  }
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('HARNESS ERROR:', e); process.exit(2); });

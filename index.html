@@ -877,11 +877,18 @@ function maybeShowPicture(text){
   var wk=tp&&tp.weeks[s.current_week], ls=wk&&(wk.lessons[s.current_lesson]||wk.lessons[0]);
   var words=ls&&ls.words?ls.words.split('、'):[];
   var t=(' '+text.toLowerCase()+' ');
+  // 只畫「最後提到」的目標詞＝目前焦點；過渡句「we learned dog, now park!」不會把舊詞 dog 畫回來
+  var pick=null, pickPos=-1;
   for(var i=0;i<words.length;i++){
     var w=words[i].trim().toLowerCase();
     if(!w||w==='—')continue;
-    if(t.indexOf(' '+w+' ')>=0||t.indexOf(w)>=0){ var already=boardWords.some(function(b){return b.indexOf(w)>=0;}); if(!already)drawOnWhiteboard({text:w}); return; }
+    var pos=t.indexOf(' '+w+' ');
+    if(pos<0)pos=t.indexOf(w);
+    if(pos>=0&&pos>pickPos){ pick=w; pickPos=pos; }
   }
+  if(!pick)return;
+  var already=boardWords.some(function(b){return b.indexOf(pick)>=0;});
+  if(!already)drawOnWhiteboard({text:pick});
 }
 
 /* ---- ElevenLabs Convai 語音課堂（Agent.md §8.3；key 在伺服器端，瀏覽器用簽名 URL） ---- */
