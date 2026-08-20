@@ -21,7 +21,6 @@ The StudyBuddy classroom can ONLY:
 - Show **static images** (flashcards / picture cards).
 - **Speak English aloud** via text-to-speech (the tutor's voice reads words and short sentences).
 - **Listen to the child's speech** via the microphone — the child can answer, echo or spell aloud, and the tutor hears it and responds.
-The parent may join in as a playmate (clap, echo, laugh) but never conducts the lesson — see Parent role below.
 
 The app CANNOT:
 - Animate or move anything on screen (no moving cards, no sweeping/tracking animations, no bouncing).
@@ -64,9 +63,9 @@ Reply with ONLY a JSON object (no markdown fences, no commentary) in exactly thi
 ## RULES (all mandatory)
 1. Exactly 4 weeks. Each week has exactly `frequency_per_week` lessons (Day 1..N from profile.dosage.frequency_per_week, clamped 2–6).
 2. Pillars: **Vision** = 視覺通路刺激 (visual tracking / card gazing — the input channel that feeds reading); **Hear** = listening exposure; **Read** = word/picture recognition; **Spell** = oral output / phonics. Choose by English level:
-   - L0 (exposure mode): Vision + Hear only — high-contrast static card gazing, spoken exposure & clapping rhythm; no Spell, minimal or no words, no screen.
+   - L0 (exposure mode): Vision + Hear only — high-contrast static card gazing, spoken exposure ; no Spell, minimal or no words, no screen.
    - L1: Vision + Hear + light Read; pointing and echo games with picture cards.
-   - L2: Hear + Read + first Spell (echoing, letter sounds, clapping syllables); Vision continues via letter shapes.
+   - L2: Hear + Read + first Spell (echoing, letter sounds); Vision continues via letter shapes.
    - L3: all four; "What is this?" Q&A; phonics first sounds (b-b-ball).
    - L4: all four; role-play dialogue, story retelling, spelling aloud (c-a-t).
 3. Emphasis — weak points and parent interest decide the pillar mix:
@@ -77,7 +76,7 @@ Reply with ONLY a JSON object (no markdown fences, no commentary) in exactly thi
 4. Every activity must be executable in the app classroom (static text + static image cards + spoken voice) and with everyday home objects (toys, paper cards, body parts). Short, slow, encouraging English (max 8 words per sentence in the spoken part). Respect dosage: each session ≤ session_min minutes, screens ≤ screen_cap_min minutes per day. NO songs/music playback, NO on-screen motion — see APP CAPABILITIES.
 5. Target words: age/level-appropriate concrete nouns and verbs — 2–4 words per lesson, English, joined by 、; use — when the activity has no words (physical play / Vision gazing / L0 exposure).
 6. Pace by personality (profile.personality.primary): cautious/sensitive children get more repetition, praise and slower steps; active/explorer children get movement and games.
-7. Follow the content_plan topic and style from the profile (e.g. topic 動物與日常用品, style 韻律拍手) — if the style mentions 兒歌, adapt it to spoken chants / clap-along rhythm (no music playback).
+7. Follow the content_plan topic and style from the profile (e.g. topic 動物與日常用品) — if the style mentions 兒歌, adapt it to spoken chants.
 8. Week focuses must be distinct and progressive: weeks 1–3 build skills toward the weak pillar and the goal, week 4 is 綜合複習＋升級預覽 (review + upgrade preview).
 9. Write focus/activity/how/goal in Traditional Chinese; words in English.
 10. The child's mistakes list may be empty — never invent mistakes. If mistakes exist, weave one corrective mini-step into week 1.
@@ -119,7 +118,7 @@ The visual input channel that feeds reading: the app shows only static cards, ve
 
 ## KNOWLEDGE — How babies learn to read & spell (Doman method)
 - **Reading ladder** (assessment R1–R7): 凝視字卡 → 分辨字卡 → 認單字 → 詞組 → 短句 → 句子 → 小書. Whole words FIRST (ball before b); letters are abstract symbols — teach them last.
-- **Spelling ladder** (SP1–SP7): 模仿字母音 → 分辨字母音 → 首音 → 音節拍手 → CVC 拼讀 → 口頭拼字 → 書寫. Spelling is strictly AFTER reading: L0–L2 no spelling; L3 introduces letters + CVC; L4 systematic spelling.
+- **Spelling ladder** (SP1–SP7): 模仿字母音 → 分辨字母音 → 首音  → CVC 拼讀 → 口頭拼字 → 書寫. Spelling is strictly AFTER reading: L0–L2 no spelling; L3 introduces letters + CVC; L4 systematic spelling.
 - **Card spec** white card, black print, lowercase print — NEVER cursive. Word cards 3″ (7.6 cm) letter height; phrases 2″; sentences 1.5″→1″.
 - **Session style**: extremely short (seconds per card set), fast, happy, no testing, no food rewards — praise and hugs only. Stop BEFORE the child wants to stop (boredom is the only danger signal).
 - **CJK caution**: English letters must never be mixed with 漢語拼音 rules; build whole-word visual memory first.
@@ -134,7 +133,7 @@ The visual input channel that feeds reading: the app shows only static cards, ve
 - explorer 探索者: fast, movement, short commands, chase games.
 - observer 觀察者: slow, gentle, long pauses, repeat, no pressure.
 - socializer 社交家: warm, turn-taking, imitation, praise, eye contact.
-- performer 表演者: clap-along spoken chants, repetition, applause, "你真棒".
+- performer 表演者: spoken chants, repetition, applause, "你真棒".
 - thinker 思考者: calm, open questions, choices, think-time.
 - sensory 感官者: show + touch + name concrete objects.
 
