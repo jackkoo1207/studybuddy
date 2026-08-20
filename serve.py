@@ -605,6 +605,12 @@ GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar'
 _gcal_state = {}  # state -> (uid, expires)
 
 def _gcal_creds():
+    # Railway：用環境變數（client_secret_*.json 被 gitignore，不會部署上去）
+    cid = os.environ.get('GCAL_CLIENT_ID', '').strip()
+    csec = os.environ.get('GCAL_CLIENT_SECRET', '').strip()
+    if cid and csec:
+        return cid, csec
+    # 本地開發：讀 repo 根目錄的 client_secret_*.json
     try:
         import glob
         files = glob.glob(os.path.join(ROOT, 'client_secret_*.json'))
@@ -617,9 +623,9 @@ def _gcal_creds():
     except Exception:
         return None, None
 
-def _gcal_redirect(host):
-    # host 由請求提供（本地 localhost:PORT / Railway 域名），callback 路徑固定
-    return 'http://%s/api/gcal-callback' % host
+def _gcal_redirect(host, proto='http'):
+    # host 由請求提供（本地 localhost:PORT / Railway 域名）；Railway TLS 終止於 proxy → 用 X-Forwarded-Proto
+    return '%s://%s/api/gcal-callback' % (proto, host)
 
 def _gcal_save_token(c, uid, tok):
     with _cur(c) as cur:
@@ -851,8 +857,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 state = secrets.token_urlsafe(16)
                 _gcal_state[state] = (uid, time.time())
                 host = self.headers.get('Host') or ('localhost:%d' % PORT)
+                proto = 'https' if (self.headers.get('X-Forwarded-Proto') or 'http').startswith('https') else 'http'
                 q = urllib.parse.urlencode({
-                    'client_id': cid, 'redirect_uri': _gcal_redirect(host),
+                    'client_id': cid, 'redirect_uri': _gcal_redirect(host, proto),
                     'response_type': 'code', 'scope': GCAL_SCOPE,
                     'access_type': 'offline', 'prompt': 'consent', 'state': state,
                 })
@@ -878,9 +885,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             try:
                 cid, csec = _gcal_creds()
                 host = self.headers.get('Host') or ('localhost:%d' % PORT)
+                proto = 'https' if (self.headers.get('X-Forwarded-Proto') or 'http').startswith('https') else 'http'
                 body = urllib.parse.urlencode({
                     'client_id': cid, 'client_secret': csec, 'code': code,
-                    'redirect_uri': _gcal_redirect(host), 'grant_type': 'authorization_code',
+                    'redirect_uri': _gcal_redirect(host, proto), 'grant_type': 'authorization_code',
                 }).encode()
                 req = urllib.request.Request('https://oauth2.googleapis.com/token', data=body)
                 with urllib.request.urlopen(req, timeout=20) as r:
