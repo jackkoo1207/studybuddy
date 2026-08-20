@@ -856,15 +856,20 @@ function drawOnWhiteboard(p){
   var wb=document.getElementById('whiteboard'), lines=document.getElementById('wbLines'), em=document.getElementById('wbEmoji'), g=document.getElementById('wbGen');
   if(!wb||!lines)return;
   if(p.clear||boardLines>=4){ lines.innerHTML=''; boardLines=0; boardWords=[]; if(em)em.style.display='none'; setBoardImg(!!(g&&g.style.display==='block')); }
+  var key=text.toLowerCase().replace(/\s+/g,' ').trim();
+  var word=text.toLowerCase().replace(/[^a-z ]/g,'').trim().split(/\s+/).filter(Boolean)
+    .find(function(x){ return EMOJI_WORDS[x]||EMOJI_WORDS[x.replace(/s$/,'')]; });
+  if(boardWords.indexOf(key)>=0){ // 同一句已在白板 → 不重複畫，只確保圖卡顯示
+    if(word){ em.src=imageForWord(word); em.style.display='block'; setBoardImg(true); }
+    return;
+  }
   var div=document.createElement('div'); div.className='wb-line';
   var fs=p.font_size||150; if(text.length>12)fs=110; if(text.length>24)fs=78;
   var bw=wb.clientWidth||560;
   div.style.fontSize=Math.max(18,Math.round(fs*bw/2109))+'px';
   div.style.color=p.color||((boardLines%3===1)?'#e05d3a':(boardLines%3===2)?'#2a9d5c':'#1b2a4a');
   div.style.transform='rotate('+((boardLines%3)-1)*1.8+'deg)';
-  div.textContent=text; lines.appendChild(div); boardLines++;
-  var word=text.toLowerCase().replace(/[^a-z ]/g,'').trim().split(/\s+/).filter(Boolean)
-    .find(function(x){ return EMOJI_WORDS[x]||EMOJI_WORDS[x.replace(/s$/,'')]; });
+  div.textContent=text; lines.appendChild(div); boardLines++; boardWords.push(key);
   if(word){ em.src=imageForWord(word); em.style.display='block'; setBoardImg(true); }
 }
 function maybeShowPicture(text){
@@ -875,7 +880,7 @@ function maybeShowPicture(text){
   for(var i=0;i<words.length;i++){
     var w=words[i].trim().toLowerCase();
     if(!w||w==='—')continue;
-    if(t.indexOf(' '+w+' ')>=0||t.indexOf(w)>=0){ if(boardWords.indexOf(w)<0)drawOnWhiteboard({text:w}); return; }
+    if(t.indexOf(' '+w+' ')>=0||t.indexOf(w)>=0){ var already=boardWords.some(function(b){return b.indexOf(w)>=0;}); if(!already)drawOnWhiteboard({text:w}); return; }
   }
 }
 
