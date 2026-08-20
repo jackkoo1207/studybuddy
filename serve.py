@@ -793,6 +793,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 c.commit()
                 self._send_json(200, {'ok': True})
                 return
+            if path == '/api/lesson-answer':
+                # 即時作答記錄：agent 每次 record_answer tool call 都會立刻寫入（不依賴課堂結束）
+                ans = body.get('answer')
+                if not isinstance(ans, dict):
+                    self._send_json(400, {'error': 'bad answer'}); return
+                with _cur(c) as cur:
+                    cur.execute(
+                        'INSERT INTO lesson_answers(user_id,week_num,day,activity,pillar,words,word,child_said,correct) '
+                        'VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)',
+                        (uid, int(ans.get('week_num') or 0), str(ans.get('day') or '')[:50],
+                         str(ans.get('activity') or '')[:100], str(ans.get('pillar') or '')[:50],
+                         str(ans.get('words') or '')[:200], str(ans.get('word') or '')[:50],
+                         str(ans.get('child_said') or '')[:100], bool(ans.get('correct'))))
+                c.commit()
+                self._send_json(200, {'ok': True})
+                return
             self._send_json(404, {'error': 'not found'})
 
     # --- API PUT ---
@@ -871,22 +887,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                          int(res.get('right_count') or 0), int(res.get('wrong_count') or 0),
                          int(res.get('total') or 0), float(res.get('accuracy') or 0),
                          json.dumps(res.get('detail') or [], ensure_ascii=False)))
-                c.commit()
-                self._send_json(200, {'ok': True})
-                return
-            if path == '/api/lesson-answer':
-                # 即時作答記錄：agent 每次 record_answer tool call 都會立刻寫入（不依賴課堂結束）
-                ans = body.get('answer')
-                if not isinstance(ans, dict):
-                    self._send_json(400, {'error': 'bad answer'}); return
-                with _cur(c) as cur:
-                    cur.execute(
-                        'INSERT INTO lesson_answers(user_id,week_num,day,activity,pillar,words,word,child_said,correct) '
-                        'VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)',
-                        (uid, int(ans.get('week_num') or 0), str(ans.get('day') or '')[:50],
-                         str(ans.get('activity') or '')[:100], str(ans.get('pillar') or '')[:50],
-                         str(ans.get('words') or '')[:200], str(ans.get('word') or '')[:50],
-                         str(ans.get('child_said') or '')[:100], bool(ans.get('correct'))))
                 c.commit()
                 self._send_json(200, {'ok': True})
                 return
