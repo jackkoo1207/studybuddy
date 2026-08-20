@@ -95,6 +95,10 @@ SCHEMA = [
   pillar TEXT NOT NULL DEFAULT '',
   lesson_date DATE NOT NULL DEFAULT CURRENT_DATE,
   created_at TIMESTAMPTZ DEFAULT now())""",
+"""CREATE TABLE IF NOT EXISTS gcal_tokens(
+  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  token_json JSONB NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT now())""",
 ]
 
 # ---------- ElevenLabs 簽名 URL（key 只留在伺服器端，瀏覽器永不接觸 key） ----------
@@ -596,6 +600,79 @@ def user_by_token(c, token):
         row = cur.fetchone()
         return row[0] if row else None
 
+# ---------- Google Calendar OAuth（client_secret_*.json 在 repo 根目錄，gitignored；token 每用戶存 DB） ----------
+GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar'
+_gcal_state = {}  # state -> (uid, expires)
+
+def _gcal_creds():
+    try:
+        import glob
+        files = glob.glob(os.path.join(ROOT, 'client_secret_*.json'))
+        if not files:
+            return None, None
+        with open(files[0], encoding='utf-8') as f:
+            d = json.load(f)
+        app = d.get('installed') or d.get('web') or d
+        return app.get('client_id'), app.get('client_secret')
+    except Exception:
+        return None, None
+
+def _gcal_redirect(host):
+    # host 由請求提供（本地 localhost:PORT / Railway 域名），callback 路徑固定
+    return 'http://%s/api/gcal-callback' % host
+
+def _gcal_save_token(c, uid, tok):
+    with _cur(c) as cur:
+        cur.execute(
+            'INSERT INTO gcal_tokens(user_id,token_json) VALUES(%s,%s::jsonb) '
+            'ON CONFLICT (user_id) DO UPDATE SET token_json=EXCLUDED.token_json, updated_at=now()',
+            (uid, json.dumps(tok, ensure_ascii=False)))
+    c.commit()
+
+def _gcal_token(c, uid):
+    with _cur(c) as cur:
+        cur.execute('SELECT token_json FROM gcal_tokens WHERE user_id=%s', (uid,))
+        row = cur.fetchone()
+        return row[0] if row else None
+
+def _gcal_valid_token(c, uid):
+    """回傳可用 access_token；過期則用 refresh_token 換新（失敗回 None）。"""
+    tok = _gcal_token(c, uid)
+    if not tok or not tok.get('refresh_token'):
+        return None
+    exp = tok.get('expires_at') or 0
+    if exp > time.time() + 30:
+        return tok['access_token']
+    cid, csec = _gcal_creds()
+    if not cid:
+        return None
+    try:
+        body = urllib.parse.urlencode({
+            'client_id': cid, 'client_secret': csec,
+            'refresh_token': tok['refresh_token'], 'grant_type': 'refresh_token',
+        }).encode()
+        req = urllib.request.Request('https://oauth2.googleapis.com/token', data=body)
+        with urllib.request.urlopen(req, timeout=20) as r:
+            new = json.load(r)
+        tok.update(new)
+        tok['expires_at'] = time.time() + int(new.get('expires_in', 3600)) - 60
+        _gcal_save_token(c, uid, tok)
+        return tok['access_token']
+    except Exception as e:
+        sys.stderr.write('[serve.py] gcal refresh error: %s\n' % e)
+        return None
+
+def _gcal_api(path, token, method='GET', payload=None):
+    url = 'https://www.googleapis.com' + path
+    headers = {'Authorization': 'Bearer ' + token}
+    data = None
+    if payload is not None:
+        data = json.dumps(payload).encode()
+        headers['Content-Type'] = 'application/json'
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    with urllib.request.urlopen(req, timeout=25) as r:
+        return json.load(r)
+
 # ---------- HTTP ----------
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *a, **k):
@@ -756,6 +833,144 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 } for r in rows]})
             except Exception as e:
                 sys.stderr.write('[serve.py] /api/common-errors error: %s\n' % e)
+                self._send_json(500, {'error': 'server error', 'detail': str(e)[:200]})
+            return
+        if path == '/api/gcal-auth':
+            # 開始 Google OAuth：跳轉 Google 授權頁（state 記 uid，callback 驗證後存 token）
+            try:
+                with DB_LOCK:
+                    c = db()
+                    if c is None:
+                        self._send_json(503, {'error': 'database not configured'}); return
+                    uid = user_by_token(c, self._bearer())
+                    if uid is None:
+                        self._send_json(401, {'error': 'unauthorized'}); return
+                cid, _ = _gcal_creds()
+                if not cid:
+                    self._send_json(500, {'error': 'Google Calendar 未設定（缺 client_secret_*.json）'}); return
+                state = secrets.token_urlsafe(16)
+                _gcal_state[state] = (uid, time.time())
+                host = self.headers.get('Host') or ('localhost:%d' % PORT)
+                q = urllib.parse.urlencode({
+                    'client_id': cid, 'redirect_uri': _gcal_redirect(host),
+                    'response_type': 'code', 'scope': GCAL_SCOPE,
+                    'access_type': 'offline', 'prompt': 'consent', 'state': state,
+                })
+                self.send_response(302)
+                self.send_header('Location', 'https://accounts.google.com/o/oauth2/v2/auth?' + q)
+                self.end_headers()
+            except Exception as e:
+                sys.stderr.write('[serve.py] /api/gcal-auth error: %s\n' % e)
+                self._send_json(500, {'error': 'server error', 'detail': str(e)[:200]})
+            return
+        if path == '/api/gcal-callback':
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            st = q.get('state', [''])[0]
+            code = q.get('code', [''])[0]
+            err = q.get('error', [None])[0]
+            pair = _gcal_state.pop(st, None)
+            if err or not code or not pair:
+                self.send_response(302)
+                self.send_header('Location', '/#gcal-error')
+                self.end_headers()
+                return
+            uid, _ = pair
+            try:
+                cid, csec = _gcal_creds()
+                host = self.headers.get('Host') or ('localhost:%d' % PORT)
+                body = urllib.parse.urlencode({
+                    'client_id': cid, 'client_secret': csec, 'code': code,
+                    'redirect_uri': _gcal_redirect(host), 'grant_type': 'authorization_code',
+                }).encode()
+                req = urllib.request.Request('https://oauth2.googleapis.com/token', data=body)
+                with urllib.request.urlopen(req, timeout=20) as r:
+                    tok = json.load(r)
+                tok['expires_at'] = time.time() + int(tok.get('expires_in', 3600)) - 60
+                with DB_LOCK:
+                    c = db()
+                    if c is not None:
+                        _gcal_save_token(c, uid, tok)
+                self.send_response(302)
+                self.send_header('Location', '/#gcal-connected')
+                self.end_headers()
+            except Exception as e:
+                sys.stderr.write('[serve.py] /api/gcal-callback error: %s\n' % e)
+                self.send_response(302)
+                self.send_header('Location', '/#gcal-error')
+                self.end_headers()
+            return
+        if path == '/api/gcal-status':
+            try:
+                with DB_LOCK:
+                    c = db()
+                    if c is None:
+                        self._send_json(503, {'error': 'database not configured'}); return
+                    uid = user_by_token(c, self._bearer())
+                    if uid is None:
+                        self._send_json(401, {'error': 'unauthorized'}); return
+                    tok = _gcal_token(c, uid)
+                self._send_json(200, {'connected': bool(tok and tok.get('refresh_token'))})
+            except Exception as e:
+                self._send_json(500, {'error': 'server error', 'detail': str(e)[:200]})
+            return
+        if path == '/api/gcal-calendars':
+            try:
+                with DB_LOCK:
+                    c = db()
+                    if c is None:
+                        self._send_json(503, {'error': 'database not configured'}); return
+                    uid = user_by_token(c, self._bearer())
+                    if uid is None:
+                        self._send_json(401, {'error': 'unauthorized'}); return
+                    tok = _gcal_valid_token(c, uid)
+                if not tok:
+                    self._send_json(401, {'error': 'not_connected'}); return
+                data = _gcal_api('/calendar/v3/users/me/calendarList?maxResults=50', tok)
+                cals = [{
+                    'id': x['id'], 'summary': x.get('summary', x['id']),
+                    'primary': x.get('primary', False),
+                } for x in data.get('items', [])]
+                self._send_json(200, {'calendars': cals})
+            except Exception as e:
+                self._send_json(500, {'error': 'server error', 'detail': str(e)[:200]})
+            return
+        if path == '/api/gcal-events':
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            cal = q.get('cal', [''])[0]
+            t0 = q.get('start', [''])[0]
+            t1 = q.get('end', [''])[0]
+            if not cal or not t0 or not t1:
+                self._send_json(400, {'error': 'cal,start,end required'}); return
+            try:
+                with DB_LOCK:
+                    c = db()
+                    if c is None:
+                        self._send_json(503, {'error': 'database not configured'}); return
+                    uid = user_by_token(c, self._bearer())
+                    if uid is None:
+                        self._send_json(401, {'error': 'unauthorized'}); return
+                    tok = _gcal_valid_token(c, uid)
+                if not tok:
+                    self._send_json(401, {'error': 'not_connected'}); return
+                qs = urllib.parse.urlencode({
+                    'timeMin': t0, 'timeMax': t1,
+                    'singleEvents': 'true', 'orderBy': 'startTime', 'maxResults': 500,
+                })
+                data = _gcal_api('/calendar/v3/calendars/' + urllib.parse.quote(cal, safe='') + '/events?' + qs, tok)
+                evs = []
+                for e in data.get('items', []):
+                    if e.get('status') == 'cancelled':
+                        continue
+                    s = e.get('start', {})
+                    en = e.get('end', {})
+                    if 'date' in s:
+                        evs.append({'id': e['id'], 'summary': e.get('summary', '(no title)'),
+                                    'allDay': True, 'start': s['date'], 'end': en.get('date')})
+                    else:
+                        evs.append({'id': e['id'], 'summary': e.get('summary', '(no title)'),
+                                    'allDay': False, 'start': s.get('dateTime'), 'end': en.get('dateTime')})
+                self._send_json(200, {'events': evs})
+            except Exception as e:
                 self._send_json(500, {'error': 'server error', 'detail': str(e)[:200]})
             return
         super().do_GET()
@@ -954,6 +1169,37 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                          str(er.get('pillar') or '')[:50]))
                 c.commit()
                 self._send_json(200, {'ok': True})
+                return
+            if path == '/api/gcal-events':
+                # 把排好的課寫回 Google Calendar（Save to Google）
+                body = self._read_json()
+                if not isinstance(body, dict):
+                    self._send_json(400, {'error': 'bad request'}); return
+                cal = body.get('cal'); summary = body.get('summary')
+                start = body.get('start'); end = body.get('end')
+                if not all([cal, summary, start, end]):
+                    self._send_json(400, {'error': 'cal,summary,start,end required'}); return
+                try:
+                    with DB_LOCK:
+                        c = db()
+                        if c is None:
+                            self._send_json(503, {'error': 'database not configured'}); return
+                        uid = user_by_token(c, self._bearer())
+                        if uid is None:
+                            self._send_json(401, {'error': 'unauthorized'}); return
+                        tok = _gcal_valid_token(c, uid)
+                    if not tok:
+                        self._send_json(401, {'error': 'not_connected'}); return
+                    payload = {
+                        'summary': str(summary)[:100],
+                        'start': {'dateTime': start},
+                        'end': {'dateTime': end},
+                    }
+                    data = _gcal_api('/calendar/v3/calendars/' + urllib.parse.quote(cal, safe='') + '/events',
+                                     tok, 'POST', payload)
+                    self._send_json(200, {'id': data.get('id'), 'htmlLink': data.get('htmlLink')})
+                except Exception as e:
+                    self._send_json(500, {'error': 'server error', 'detail': str(e)[:200]})
                 return
             self._send_json(404, {'error': 'not found'})
 

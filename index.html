@@ -66,6 +66,33 @@
   .note{font-size:12px;color:var(--muted);background:#f3f5f9;border-left:3px solid var(--line);padding:8px 10px;border-radius:6px;margin-top:10px}
   .badge{font-size:11px;padding:2px 8px;border-radius:999px;background:#eef2ff;color:var(--brand)}
   code{background:#f3f5f9;padding:1px 5px;border-radius:5px;font-size:12px}
+
+  /* ===== 時間表（Google Calendar 週曆） ===== */
+  .sched-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 12px}
+  .sched-actions .btn{background:var(--card);color:var(--ink);border:1px solid var(--line);padding:8px 14px;font-size:13px}
+  .sched-actions .btn.primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .sched-actions .btn:disabled{opacity:.45;cursor:not-allowed}
+  .sched-actions .sep{width:1px;height:22px;background:var(--line)}
+  .sched-actions .conn{font-size:12px;color:var(--ok)}
+  #schedCalendar{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px;min-height:420px}
+  #schedCalendar .fc-event{cursor:pointer}
+  #schedCalendar .gcal-event{cursor:default}
+  #schedCalendar .course-event{cursor:grab}
+  #schedCalendar .course-event:active{cursor:grabbing}
+  .modal{position:fixed;inset:0;background:rgba(20,30,60,.45);display:flex;align-items:center;justify-content:center;z-index:60}
+  .modal.hidden{display:none}
+  .modal-box{background:var(--card);border-radius:14px;padding:20px;width:340px;max-width:92vw;box-shadow:0 10px 30px rgba(20,30,60,.25)}
+  .modal-box h2{margin:0 0 12px;font-size:16px}
+  .modal-box label{font-size:13px;font-weight:600;color:var(--muted)}
+  .modal-box input[type=text]{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:10px;font-size:14px;margin-top:4px}
+  .modal-box .check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);cursor:pointer}
+  .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+  .modal-actions button{background:var(--brand);color:#fff}
+  .modal-actions button:last-child{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  .cal-list{max-height:260px;overflow:auto;display:flex;flex-direction:column;gap:4px;font-size:13px;margin-top:6px}
+  .cal-item{display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:8px;cursor:pointer;font-weight:400}
+  .cal-item:hover{background:#f2f5fa}
+  .cal-list .hint{color:var(--muted)}
   @media(max-width:620px){.grid{grid-template-columns:1fr}.kv{grid-template-columns:110px 1fr}}
 
   /* ===== 白板課堂（whiteboard + talking head + mic）===== */
@@ -284,8 +311,45 @@
       <div id="tab-sched" class="hidden">
         <h2>每週時間表</h2>
         <p class="sub" id="schedSub"></p>
-        <div class="sched" id="schedGrid"></div>
-        <div class="note">原型以本地排課演示；真實上線可匯入／匯出 Google Calendar（見 Task.md）。</div>
+        <div class="sched-actions">
+          <button id="btn-gcal-connect" class="btn primary">連接 Google Calendar</button>
+          <button id="btn-gcal-import" class="btn" disabled>匯入 Google 行程…</button>
+          <button id="btn-gcal-add" class="btn">＋ 加入課程</button>
+          <span class="sep"></span>
+          <button id="btn-gcal-ics" class="btn">匯出 .ics</button>
+          <button id="btn-gcal-json" class="btn">匯出 .json</button>
+          <button id="btn-gcal-push" class="btn" disabled>寫回 Google</button>
+          <span id="gcal-state" class="conn"></span>
+        </div>
+        <div id="schedCalendar"></div>
+        <div class="note" id="schedNote"></div>
+      </div>
+
+      <!-- Add Course modal -->
+      <div id="gcal-modal" class="modal hidden">
+        <div class="modal-box">
+          <h2>加入課程</h2>
+          <label>課程名稱
+            <input id="gcal-course-name" type="text" placeholder="e.g. Math 101" autocomplete="off">
+          </label>
+          <label class="check"><input id="gcal-weekdays" type="checkbox" checked> 只排平日（週一–五）</label>
+          <div class="modal-actions">
+            <button id="gcal-modal-ok" class="btn primary">加入（每天 1 小時）</button>
+            <button id="gcal-modal-cancel" class="btn">取消</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Import modal -->
+      <div id="gcal-modal-import" class="modal hidden">
+        <div class="modal-box">
+          <h2>匯入 Google 行程</h2>
+          <div id="gcal-cal-list" class="cal-list"><div class="hint">載入行事曆中…</div></div>
+          <div class="modal-actions">
+            <button id="gcal-import-ok" class="btn primary">匯入所選</button>
+            <button id="gcal-import-cancel" class="btn">取消</button>
+          </div>
+        </div>
       </div>
 
       <!-- TAB: SETTINGS -->
@@ -303,6 +367,7 @@
 
 </div>
 
+<script src="asserts/fullcalendar.min.js"></script>
 <script>
 /* ============ 規則引擎（對標 prompts.py / personality.md，離線兜底路徑） ============ */
 var TIER_FACTOR={"1線":1.0,"2線":0.9,"3線":0.8,"4線":0.6,"5線":0.4,"香港":0.9};
@@ -360,6 +425,7 @@ function tab(t){
     document.getElementById('tab-'+x).classList.toggle('hidden',x!==t);
   });
   if(t==='plan') renderPlan();      // 每次切到進度頁都重新渲染（課後已學會單字/常錯即時更新）
+  if(t==='sched') renderSched();    // 切到時間表才初始化/更新 Google Calendar 週曆
   if(t==='settings') renderSettings();
 }
 function renderSettings(){
@@ -868,18 +934,307 @@ function renderMistakes(){
     return '<div class="mistake"><b>'+m.c+'</b> · 支柱：<span class="pill '+pillarClass(m.pillar)+'">'+m.pillar+'</span><br>練習：<span class="pill">'+m.drill+'</span></div>';
   }).join(''):'<div class="note">尚未有課堂記錄 — 開始練習後，agent 會觀察並記錄常見概念性錯誤。</div>');
 }
-function renderSched(){
-  var d=S.plan.dosage;
-  document.getElementById('schedSub').textContent='每週 '+d.frequency_per_week+' 次，每次 '+d.session_min+' 分（共 '+d.weekly_min+' 分）。點格模擬排課，可匯出 Google Calendar。';
-  var days=["一","二","三","四","五","六","日"];
-  var html="";
-  for(var i=0;i<7;i++){
-    var on = i < d.frequency_per_week;
-    var cell = on ? ('📚 '+d.session_min+'分<br><span class="pill vision">Vision</span> <span class="pill hear">Hear</span> <span class="pill read">Read</span> <span class="pill spell">Spell</span>') : "—";
-    html+='<div class="day"><b>週'+days[i]+'</b>'+cell+'</div>';
-  }
-  document.getElementById('schedGrid').innerHTML=html;
+/* ==================== 每週時間表：Google Calendar 匯入／排課／拖曳／匯出 ==================== */
+var GCAL_LS_KEY='sb_gcal_events_v1';
+var GCAL_DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+var GCAL_PALETTE=['#d64541','#e67e22','#e0a93c','#27ae60','#16a085','#2980b9','#5b6fd6','#8e44ad','#c0399b','#7f8c8d'];
+var GCAL_IMPORT_DAYS=60;
+var gcal={cal:null,colorIdx:0,calId:'',init:false};
+
+function gcalToast(msg,isErr){
+  var el=document.getElementById('schedNote');
+  if(!el)return;
+  el.textContent=msg;
+  el.className='note'+(isErr?'':'')+(msg?'':'');
+  clearTimeout(gcalToast._h);
+  gcalToast._h=setTimeout(function(){ if(el)el.textContent=''; },4000);
 }
+
+function gcalStartOfWeek(d){
+  var x=new Date(d); x.setHours(0,0,0,0);
+  x.setDate(x.getDate()-((x.getDay()+6)%7));
+  return x;
+}
+
+function gcalCleanEvent(ev){
+  var o={
+    id:ev.id, title:ev.title,
+    start:ev.startStr||ev.start.toISOString(),
+    allDay:!!ev.allDay,
+    color:ev.backgroundColor||ev.color,
+    textColor:ev.textColor,
+    classNames:(ev.classNames||[]).filter(function(c){return typeof c==='string';}),
+    extendedProps:ev.extendedProps||{}
+  };
+  if(ev.end)o.end=ev.endStr||ev.end.toISOString();
+  return o;
+}
+function gcalPersist(){
+  try{ localStorage.setItem(GCAL_LS_KEY,JSON.stringify(gcal.cal.getEvents().map(gcalCleanEvent))); }catch(e){}
+}
+function gcalLoad(){
+  try{
+    var arr=JSON.parse(localStorage.getItem(GCAL_LS_KEY)||'[]');
+    return arr.map(function(e){ return Object.assign({},e,{editable:(e.extendedProps||{}).source==='course'}); });
+  }catch(e){ return []; }
+}
+
+/* --- 找空檔：該日 08:00-22:00 第一個沒被任何事件佔用的 1 小時 --- */
+function gcalFindFreeSlot(day){
+  for(var h=8;h<=21;h++){
+    var s=new Date(day); s.setHours(h,0,0,0);
+    var e=new Date(s); e.setHours(h+1,0,0,0);
+    var clash=gcal.cal.getEvents().some(function(ev){
+      if(!ev.start)return false;
+      var es=new Date(ev.start);
+      var ee=ev.end?new Date(ev.end):new Date(es.getTime()+3600e3);
+      return es<e&&ee>s;
+    });
+    if(!clash)return {start:s,end:e};
+  }
+  return null;
+}
+
+function gcalAddCourse(name,weekdaysOnly){
+  var color=GCAL_PALETTE[gcal.colorIdx++%GCAL_PALETTE.length];
+  var weekStart=gcalStartOfWeek(gcal.cal.getDate());
+  var lastDay=weekdaysOnly?5:7;
+  var added=0, full=[];
+  for(var d=0;d<lastDay;d++){
+    var day=new Date(weekStart); day.setDate(day.getDate()+d);
+    var slot=gcalFindFreeSlot(day);
+    if(slot){
+      gcal.cal.addEvent({
+        id:'c-'+crypto.randomUUID(), title:name,
+        start:slot.start, end:slot.end,
+        color:color, textColor:'#fff',
+        classNames:['course-event'], editable:true,
+        extendedProps:{source:'course',pushed:false}
+      });
+      added++;
+    }else{
+      full.push(GCAL_DAYS[day.getDay()]);
+    }
+  }
+  gcalPersist();
+  if(added===0)gcalToast('本週每天 08:00-22:00 都滿了，沒有空檔',true);
+  else if(full.length)gcalToast('已排 "'+name+'" '+added+' 天；已滿：'+full.join(', '));
+  else gcalToast('已排 "'+name+'" — 每天 1 小時共 '+added+' 天');
+}
+
+/* --- Google Calendar 匯入 --- */
+function gcalRefreshStatus(){
+  if(!S.user)return;
+  apiFetch('GET','/api/gcal-status').then(function(r){
+    var on=!!(r.ok&&r.j&&r.j.connected);
+    var c=document.getElementById('btn-gcal-connect');
+    var im=document.getElementById('btn-gcal-import');
+    var pu=document.getElementById('btn-gcal-push');
+    if(c)c.classList.toggle('hidden',on);
+    if(im)im.disabled=!on;
+    if(pu)pu.disabled=!on;
+    var st=document.getElementById('gcal-state');
+    if(st)st.textContent=on?'● Google 已連接':'';
+    if(on)apiFetch('GET','/api/gcal-calendars').then(function(r2){
+      var prim=(r2.ok&&r2.j&&r2.j.calendars||[]).find(function(x){return x.primary;});
+      if(prim)gcal.calId=prim.id;
+    }).catch(function(){});
+  }).catch(function(){});
+}
+
+function gcalOpenImport(){
+  var list=document.getElementById('gcal-cal-list');
+  list.innerHTML='<div class="hint">載入行事曆中…</div>';
+  document.getElementById('gcal-modal-import').classList.remove('hidden');
+  apiFetch('GET','/api/gcal-calendars').then(function(r){
+    if(!r.ok||!r.j||r.j.error){ list.innerHTML='<div class="hint">'+(r.j&&r.j.error||'無法載入')+'</div>'; return; }
+    list.innerHTML='';
+    (r.j.calendars||[]).forEach(function(c){
+      var lab=document.createElement('label');
+      lab.className='cal-item';
+      var cb=document.createElement('input');
+      cb.type='checkbox'; cb.value=c.id; cb.checked=!!c.primary;
+      lab.appendChild(cb);
+      lab.appendChild(document.createTextNode(' '+c.summary+(c.primary?' (primary)':'')));
+      list.appendChild(lab);
+    });
+  }).catch(function(){ list.innerHTML='<div class="hint">載入失敗</div>'; });
+}
+
+function gcalRunImport(){
+  var cals=Array.from(document.querySelectorAll('#gcal-cal-list input:checked')).map(function(c){return c.value;});
+  if(!cals.length){ gcalToast('請至少選一個行事曆',true); return; }
+  document.getElementById('gcal-modal-import').classList.add('hidden');
+  var start=new Date(gcalStartOfWeek(new Date())); start.setDate(start.getDate()-7);
+  var end=new Date(start); end.setDate(end.getDate()+GCAL_IMPORT_DAYS);
+  var total=0;
+  var existing=new Set(gcal.cal.getEvents().map(function(e){return (e.extendedProps||{}).importKey;}).filter(Boolean));
+  var chain=Promise.resolve();
+  cals.forEach(function(cid){
+    chain=chain.then(function(){
+      return apiFetch('GET','/api/gcal-events?cal='+encodeURIComponent(cid)+
+        '&start='+encodeURIComponent(start.toISOString())+
+        '&end='+encodeURIComponent(end.toISOString())).then(function(r){
+        if(!r.ok||!r.j||r.j.error){ gcalToast('匯入失敗：'+(r.j&&r.j.error||'') ,true); return; }
+        (r.j.events||[]).forEach(function(e){
+          var key=cid+'|'+e.id;
+          if(existing.has(key))return;
+          existing.add(key);
+          gcal.cal.addEvent({
+            id:'g-'+crypto.randomUUID(), title:e.summary,
+            allDay:!!e.allDay, start:e.start, end:e.end,
+            color:'#98a1ab', textColor:'#fff',
+            classNames:['gcal-event'], editable:false,
+            extendedProps:{source:'gcal',importKey:key}
+          });
+          total++;
+        });
+      }).catch(function(){});
+    });
+  });
+  chain.then(function(){ gcalPersist(); gcalToast(total?('已匯入 '+total+' 筆 Google 行程'):'沒有新的行程可匯入'); });
+}
+
+/* --- 匯出 --- */
+function gcalDownload(name,content,mime){
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([content],{type:mime}));
+  a.download=name;
+  a.click();
+  setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
+}
+function gcalUtc(d){ return d.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,''); }
+function gcalEsc(s){ return String(s).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\r?\n/g,'\\n'); }
+
+function gcalExportICS(){
+  var lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//StudyBuddy//ZH-CN','CALSCALE:GREGORIAN'];
+  gcal.cal.getEvents().forEach(function(ev){
+    if(!ev.start)return;
+    lines.push('BEGIN:VEVENT');
+    lines.push('UID:'+(ev.id||crypto.randomUUID())+'@studybuddy.local');
+    lines.push('DTSTAMP:'+gcalUtc(new Date()));
+    if(ev.allDay){
+      lines.push('DTSTART;VALUE=DATE:'+ev.startStr.replace(/-/g,''));
+      if(ev.endStr)lines.push('DTEND;VALUE=DATE:'+ev.endStr.replace(/-/g,''));
+    }else{
+      lines.push('DTSTART:'+gcalUtc(ev.start));
+      lines.push('DTEND:'+gcalUtc(ev.end||new Date(ev.start.getTime()+3600e3)));
+    }
+    lines.push('SUMMARY:'+gcalEsc(ev.title||'Event'));
+    lines.push('END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  gcalDownload('studybuddy-schedule.ics',lines.join('\r\n'),'text/calendar');
+  gcalToast('已匯出 .ics');
+}
+
+function gcalExportJSON(){
+  gcalDownload('studybuddy-schedule.json',JSON.stringify(gcal.cal.getEvents().map(gcalCleanEvent),null,2),'application/json');
+  gcalToast('已匯出 .json');
+}
+
+function gcalSaveToGoogle(){
+  if(!gcal.calId){ gcalToast('請先連接 Google Calendar',true); return; }
+  var courses=gcal.cal.getEvents().filter(function(e){ return (e.extendedProps||{}).source==='course'&&!e.extendedProps.pushed; });
+  if(!courses.length){ gcalToast('沒有未寫回的課程'); return; }
+  var ok=0, chain=Promise.resolve();
+  courses.forEach(function(ev){
+    chain=chain.then(function(){
+      return apiFetch('POST','/api/gcal-events',{cal:gcal.calId,summary:ev.title,
+        start:ev.start.toISOString(), end:(ev.end||new Date(ev.start.getTime()+3600e3)).toISOString()}).then(function(r){
+        if(r.ok&&r.j&&r.j.id){ ev.setExtendedProp('pushed',true); ev.setExtendedProp('googleEventId',r.j.id); ok++; }
+      }).catch(function(){});
+    });
+  });
+  chain.then(function(){ gcalPersist(); if(ok)gcalToast('已寫回 '+ok+' 筆課程到 Google Calendar'); });
+}
+
+/* --- 排課主入口（tab 切到時間表時呼叫） --- */
+function renderSched(){
+  var sub=document.getElementById('schedSub');
+  if(sub&&S.plan&&S.plan.dosage){
+    var d=S.plan.dosage;
+    sub.textContent='建議：每週 '+d.frequency_per_week+' 次，每次 '+d.session_min+' 分。可匯入 Google 行程、加入課程（自動避開重疊）、拖曳調整、匯出回 Google Calendar。';
+  }else if(sub){
+    sub.textContent='匯入 Google 行程 → 排課（自動避開重疊）→ 拖曳調整 → 匯出 / 寫回 Google Calendar。';
+  }
+  if(!gcal.init&&typeof FullCalendar!=='undefined'){
+    gcal.init=true;
+    gcal.cal=new FullCalendar.Calendar(document.getElementById('schedCalendar'),{
+      initialView:'timeGridWeek',
+      firstDay:1,
+      nowIndicator:true,
+      height:'auto',
+      slotMinTime:'07:00:00',
+      slotMaxTime:'23:00:00',
+      allDaySlot:true,
+      headerToolbar:{left:'prev,next today',center:'title',right:'dayGridMonth,timeGridWeek,timeGridDay'},
+      events:gcalLoad(),
+      eventClick:function(info){
+        var ev=info.event;
+        if((ev.extendedProps||{}).source==='course'){
+          if(confirm('刪除 "'+ev.title+'"（'+ev.start.toLocaleString()+'）？')){
+            ev.remove(); gcalPersist(); gcalToast('已刪除');
+          }
+        }else{
+          gcalToast('Google 行程：'+ev.title);
+        }
+      },
+      eventDrop:function(info){
+        var ev=info.event;
+        if((ev.extendedProps||{}).source==='course')ev.setExtendedProp('pushed',false);
+        gcalPersist();
+      },
+      eventResize:function(info){
+        var ev=info.event;
+        if((ev.extendedProps||{}).source==='course')ev.setExtendedProp('pushed',false);
+        gcalPersist();
+      }
+    });
+    gcal.cal.render();
+  }
+  gcalRefreshStatus();
+}
+
+/* --- 時間表按鈕綁定 --- */
+function bindGcalButtons(){
+  var c=document.getElementById('btn-gcal-connect');
+  if(c&&!c.dataset.bound){
+    c.dataset.bound='1';
+    c.addEventListener('click',function(){ location.href='/api/gcal-auth'; });
+    document.getElementById('btn-gcal-import').addEventListener('click',gcalOpenImport);
+    document.getElementById('btn-gcal-add').addEventListener('click',function(){
+      var n=document.getElementById('gcal-course-name');
+      if(n)n.value='';
+      document.getElementById('gcal-weekdays').checked=true;
+      document.getElementById('gcal-modal').classList.remove('hidden');
+      setTimeout(function(){ if(n)n.focus(); },30);
+    });
+    document.getElementById('gcal-modal-ok').addEventListener('click',function(){
+      var n=document.getElementById('gcal-course-name').value.trim();
+      if(!n){ gcalToast('請輸入課程名稱',true); return; }
+      document.getElementById('gcal-modal').classList.add('hidden');
+      gcalAddCourse(n,document.getElementById('gcal-weekdays').checked);
+    });
+    document.getElementById('gcal-modal-cancel').addEventListener('click',function(){
+      document.getElementById('gcal-modal').classList.add('hidden');
+    });
+    document.getElementById('gcal-import-ok').addEventListener('click',gcalRunImport);
+    document.getElementById('gcal-import-cancel').addEventListener('click',function(){
+      document.getElementById('gcal-modal-import').classList.add('hidden');
+    });
+    document.getElementById('btn-gcal-ics').addEventListener('click',gcalExportICS);
+    document.getElementById('btn-gcal-json').addEventListener('click',gcalExportJSON);
+    document.getElementById('btn-gcal-push').addEventListener('click',gcalSaveToGoogle);
+    document.addEventListener('keydown',function(e){
+      if(e.key==='Escape'){
+        document.getElementById('gcal-modal').classList.add('hidden');
+        document.getElementById('gcal-modal-import').classList.add('hidden');
+      }
+    });
+  }
+}
+bindGcalButtons();
 
 /* ---- ElevenLabs Agent 課程上下文（對標 Agent.md §8.3） ---- */
 function buildAgentContext(){
