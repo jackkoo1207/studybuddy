@@ -212,6 +212,28 @@ vm.createContext(sandbox);
     check('W: explicit single-word mention still draws when absent', JSON.stringify(sandbox.boardWords) === JSON.stringify(['park', 'dog']));
   }
 
+  // ---- lesson stats: echo judging (right/wrong counts) ----
+  {
+    sandbox.S.user = 't1';
+    sandbox.lessonStats = { right: 0, wrong: 0, attempts: [] };
+    sandbox.curWord = 'dog';
+    sandbox.recordChildAnswer('park');
+    check('S: wrong word counted wrong', sandbox.lessonStats.wrong === 1 && sandbox.lessonStats.right === 0 && sandbox.lessonStats.attempts[0].ok === false);
+    sandbox.recordChildAnswer('dog');
+    check('S: correct word counted right', sandbox.lessonStats.right === 1 && sandbox.lessonStats.wrong === 1);
+    sandbox.recordChildAnswer('Dog!');
+    check('S: case/punctuation normalized', sandbox.lessonStats.right === 2);
+    sandbox.recordChildAnswer('doh');
+    check('S: near-miss babble accepted as right', sandbox.lessonStats.right === 3);
+    sandbox.recordChildAnswer('a very long sentence about the park today');
+    check('S: long sentence not counted', sandbox.lessonStats.attempts.length === 4);
+    sandbox.curWord = null;
+    sandbox.recordChildAnswer('dog');
+    check('S: no current word => not counted', sandbox.lessonStats.attempts.length === 4);
+    sandbox.drawOnWhiteboard({ text: 'park', clear: true });
+    check('S: drawing a word sets current word', sandbox.curWord === 'park');
+  }
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('HARNESS ERROR:', e); process.exit(2); });

@@ -51,6 +51,21 @@ SCHEMA = [
   plan_json JSONB NOT NULL,
   schedule_json JSONB NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT now())""",
+"""CREATE TABLE IF NOT EXISTS lesson_results(
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  lesson_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  week_num INTEGER NOT NULL DEFAULT 0,
+  day TEXT NOT NULL DEFAULT '',
+  activity TEXT NOT NULL DEFAULT '',
+  pillar TEXT NOT NULL DEFAULT '',
+  words TEXT NOT NULL DEFAULT '',
+  right_count INTEGER NOT NULL DEFAULT 0,
+  wrong_count INTEGER NOT NULL DEFAULT 0,
+  total INTEGER NOT NULL DEFAULT 0,
+  accuracy REAL NOT NULL DEFAULT 0,
+  detail JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT now())""",
 ]
 
 # ---------- ElevenLabs 簽名 URL（key 只留在伺服器端，瀏覽器永不接觸 key） ----------
@@ -559,6 +574,30 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 sys.stderr.write('[serve.py] /api/state error: %s\n' % e)
                 self._send_json(500, {'error': 'server error', 'detail': str(e)[:200]})
             return
+        if path == '/api/lesson-results':
+            try:
+                with DB_LOCK:
+                    c = self._require_db()
+                    if c is None:
+                        return
+                    uid = user_by_token(c, self._bearer())
+                    if uid is None:
+                        self._send_json(401, {'error': 'unauthorized'})
+                        return
+                    with _cur(c) as cur:
+                        cur.execute(
+                            'SELECT lesson_date,week_num,day,activity,pillar,words,right_count,wrong_count,total,accuracy,created_at '
+                            'FROM lesson_results WHERE user_id=%s ORDER BY id DESC LIMIT 50', (uid,))
+                        rows = cur.fetchall()
+                self._send_json(200, {'results': [{
+                    'lesson_date': str(r[0]), 'week_num': r[1], 'day': r[2], 'activity': r[3],
+                    'pillar': r[4], 'words': r[5], 'right_count': r[6], 'wrong_count': r[7],
+                    'total': r[8], 'accuracy': r[9], 'created_at': str(r[10]),
+                } for r in rows]})
+            except Exception as e:
+                sys.stderr.write('[serve.py] /api/lesson-results error: %s\n' % e)
+                self._send_json(500, {'error': 'server error', 'detail': str(e)[:200]})
+            return
         super().do_GET()
 
     # --- API POST ---
@@ -753,6 +792,23 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         'INSERT INTO plans(user_id,plan_json,schedule_json) VALUES(%s,%s::jsonb,%s::jsonb) '
                         'ON CONFLICT (user_id) DO UPDATE SET plan_json=EXCLUDED.plan_json, schedule_json=EXCLUDED.schedule_json, updated_at=now()',
                         (uid, json.dumps(plan, ensure_ascii=False), json.dumps(sched, ensure_ascii=False)))
+                c.commit()
+                self._send_json(200, {'ok': True})
+                return
+            if path == '/api/lesson-result':
+                res = body.get('result')
+                if not isinstance(res, dict):
+                    self._send_json(400, {'error': 'bad result'}); return
+                with _cur(c) as cur:
+                    cur.execute(
+                        'INSERT INTO lesson_results(user_id,week_num,day,activity,pillar,words,right_count,wrong_count,total,accuracy,detail) '
+                        'VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb)',
+                        (uid, int(res.get('week_num') or 0), str(res.get('day') or '')[:50],
+                         str(res.get('activity') or '')[:100], str(res.get('pillar') or '')[:50],
+                         str(res.get('words') or '')[:200],
+                         int(res.get('right_count') or 0), int(res.get('wrong_count') or 0),
+                         int(res.get('total') or 0), float(res.get('accuracy') or 0),
+                         json.dumps(res.get('detail') or [], ensure_ascii=False)))
                 c.commit()
                 self._send_json(200, {'ok': True})
                 return
