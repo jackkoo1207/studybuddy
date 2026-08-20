@@ -922,6 +922,7 @@ function toggleVoiceLesson(){
   var ctx=buildAgentContext(), tf=ctx.today_focus;
   var brief=tf?("TODAY'S LESSON — teach exactly this (week "+tf.week+", "+tf.day+"): activity="+tf.activity+", pillar="+tf.pillar+", words="+tf.words+", how="+tf.how+", goal="+tf.goal+"."):"TODAY'S LESSON — none scheduled.";
   var prompt=PROTOCOL_TEXT+'\n\n'+brief+'\n\nLESSON CONTEXT (JSON) — INTERNAL DATA, NEVER READ ALOUD:\n'+JSON.stringify(ctx,null,2)+"\n\nTeach the child step by step in English. Follow TODAY'S LESSON exactly. Use the draw_on_whiteboard tool to write every new word on the whiteboard before speaking it. Speak ONLY natural lesson speech.";
+  voice.pendingText=brief+' Please teach this lesson now.';   // 以第一則 user message 送達，確保 agent 一定看得到今日課程
   setVoiceStatus('取得授權…'); setMicLive(true);
   getConvaiUrl().then(function(cfg){
     voice.vid = cfg.voice_id || null;

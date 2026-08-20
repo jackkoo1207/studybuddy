@@ -353,9 +353,18 @@ def sync_agent_prompt():
         return None, '讀取 tutor-agent.md 失敗: %s' % e
     if not p:
         return None, 'tutor-agent.md 空白'
+    body = {
+        'conversation_config': {
+            'agent': {
+                'prompt': {'prompt': p},
+                'dynamic_variables': [{'name': 'lesson_context',
+                                       'description': "Today's lesson plan (JSON) injected by the StudyBuddy app at session start"}]
+            }
+        }
+    }
     req = urllib.request.Request(
         'https://api.elevenlabs.io/v1/convai/agents/' + AGENT_ID,
-        data=json.dumps({'conversation_config': {'agent': {'prompt': {'prompt': p}}}}).encode(),
+        data=json.dumps(body).encode(),
         headers={'xi-api-key': key, 'Content-Type': 'application/json'},
         method='PATCH')
     try:
