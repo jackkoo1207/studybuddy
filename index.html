@@ -95,7 +95,7 @@
   .bubble{width:100%;background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 12px;
     font-size:13px;max-height:180px;overflow:auto;box-shadow:0 2px 8px rgba(20,30,60,.05)}
   .lesson-result{width:100%;background:#e8f7ee;border:2px dashed #2a9d5c;border-radius:12px;padding:8px 12px;
-    font-size:13px;font-weight:700;color:#1b6b3d;text-align:center;box-shadow:0 2px 8px rgba(20,30,60,.05)}
+    font-size:13px;font-weight:700;color:#1b6b3d;text-align:center;box-shadow:0 2px 8px rgba(20,30,60,.05);margin-top:10px}
   .lesson-result.pron{background:#eef4ff;border-color:#4a7dff;color:#1b4bd3}
   .lesson-result .sub{font-size:11px;font-weight:400;color:#4a8a63;margin-top:2px}
   .lesson-result.pron .sub{color:#5a7bc8}
@@ -259,10 +259,10 @@
           <div class="avatar-col">
             <div class="avatar-frame" id="avatarFrame"><img src="asserts/Placeholder.jpg" alt="StudyBuddy 導師" /></div>
             <div class="bubble" id="bubbleLog"><div class="bubble-empty" id="bubbleEmpty">🪑 導師還沒說話…按 🎤 開始課堂</div></div>
-            <div class="lesson-result hidden" id="lessonResult"></div>
-            <div class="lesson-result pron hidden" id="pronResult"></div>
           </div>
         </div>
+        <div class="lesson-result hidden" id="lessonResult"></div>
+        <div class="lesson-result pron hidden" id="pronResult"></div>
         <div class="inputbar">
           <input type="text" id="chatIn" placeholder="輸入英文單字／句子，Enter 送出…" onkeydown="if(event.key==='Enter')sendStudentText()" />
           <button onclick="sendStudentText()">➤ 送出</button>
