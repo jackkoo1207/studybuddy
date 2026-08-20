@@ -247,19 +247,19 @@ STRICT OUTPUT: reply with ONLY a JSON object (no markdown fences, no commentary)
 RULES:
 1. Exactly 4 weeks. Each week has exactly frequency_per_week lessons (Day 1..N from the profile's dosage.frequency_per_week, clamped 2-6).
 2. Pillars: Vision = 視覺通路刺激 (visual tracking / card gazing — the input channel that feeds reading), Hear = listening exposure, Read = word/picture recognition, Spell = oral output / phonics. Choose by English level:
-   - L0 (exposure mode): Vision + Hear only — high-contrast card gazing & tracking, songs/rhythm; no Spell, minimal or no words, no screen.
+   - L0 (exposure mode): Vision + Hear only — high-contrast static card gazing & parent-led tracking, spoken exposure & clapping rhythm; no Spell, minimal or no words, no screen.
    - L1: Vision + Hear + light Read; TPR commands and naming real objects, slow card sweeps.
    - L2: Hear + Read + first Spell (echoing, letter sounds, clapping syllables); Vision continues via letter shapes.
    - L3: all four; "What is this?" Q&A; phonics first sounds (b-b-ball).
    - L4: all four; role-play dialogue, story retelling, spelling aloud (c-a-t).
 3. Emphasis — weak points and parent interest decide the pillar mix:
-   - Weak pathways (profile.phys.weak = the TWO LOWEST-scoring dimensions of Vision/Hear/Read/Spell): 視覺->Vision, 聽覺->Hear, 閱讀->Read, 拼寫->Spell. The weak pillars get the MAJORITY of lessons across all 4 weeks (e.g. weak 聽覺 -> most lessons are Hear: listening games, TPR, songs; weak 視覺 -> Vision games every week: card gazing/tracking). The FIRST lesson of week 1 is a targeted reinforcement game for the weakest pathway; week 1 focus must include the text 針對薄弱項 and list the weak pathways (e.g. 針對薄弱項：視覺、拼寫).
+   - Weak pathways (profile.phys.weak = the TWO LOWEST-scoring dimensions of Vision/Hear/Read/Spell): 視覺->Vision, 聽覺->Hear, 閱讀->Read, 拼寫->Spell. The weak pillars get the MAJORITY of lessons across all 4 weeks (e.g. weak 聽覺 -> most lessons are Hear: listening games, TPR, echo games; weak 視覺 -> Vision games every week: static card gazing / parent-led tracking). The FIRST lesson of week 1 is a targeted reinforcement game for the weakest pathway; week 1 focus must include the text 針對薄弱項 and list the weak pathways (e.g. 針對薄弱項：視覺、拼寫).
    - Parent interest (profile.goal): 視覺->Vision-heavy; 聽覺->Hear-heavy; 閱讀->Read-heavy; 拼寫->Spell-heavy.
    - Weak points outrank the goal when they conflict. No weak pathways -> follow the goal; no goal (or legacy value) -> balanced rotation of all four pillars.
-4. Every activity must be executable by the parent at home with everyday objects (toys, picture cards, songs, body parts). Short, slow, encouraging English (max 8 words per sentence in the spoken part). Respect dosage: each session <= session_min minutes, screens <= screen_cap_min minutes per day.
+4. APP CAPABILITIES: the app can show static text + static image cards, speak English via TTS, and LISTEN to the child's speech (mic). It CANNOT animate/move on-screen elements or play songs/music. Design activities within these limits (parent-led physical play with everyday objects is fine: toys, paper cards, body parts, clapping). Short, slow, encouraging English (max 8 words per sentence in the spoken part). Respect dosage: each session <= session_min minutes, screens <= screen_cap_min minutes per day.
 5. Target words: age/level-appropriate concrete nouns and verbs (L1: ball, dog, nose, clap; L2: cat, dog, star, twinkle; L3: what, this, bird, pig; L4: park, run, story...). 2-4 words per lesson, English, joined by 、; use — when the activity has no words (physical play / L0 exposure).
 6. Pace by personality (profile.personality.primary): cautious/sensitive children get more repetition, praise and slower steps; active/explorer children get movement and games.
-7. Follow the content_plan topic and style from the profile (e.g. topic 動物與日常用品, style 兒歌韻律 + TPR).
+7. Follow the content_plan topic and style from the profile (e.g. topic 動物與日常用品, style 韻律拍手 + TPR) — 兒歌 styles become spoken chants / clap-along rhythm (no music).
 8. Week focuses must be distinct and progressive: weeks 1-3 build skills toward the goal, week 4 is 綜合複習＋升級預覽 (review + upgrade preview).
 9. Write focus/activity/how/goal in Traditional Chinese; words in English.
 10. The child's mistakes list may be empty — never invent mistakes. If mistakes exist, weave one corrective mini-step into week 1.
