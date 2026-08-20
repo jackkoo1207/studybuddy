@@ -653,21 +653,21 @@ function generateTeachingPlanLocal(){
     L4:["角色扮演對話","故事複述","拼讀輸出","綜合複習＋升級預覽"]
   };
   var pools={
-    L0: [["Hear","聲音暴露：朗讀節奏音","agent 朗讀 la-la-la 等節奏音與單字，媽媽重複，觀察是否轉頭/安靜",["la-la-la"]],
-        ["Hear","親子律動：Clap your hands","邊唱邊拍手，讓寶寶模仿動作",["clap","hands"]],
+    L0: [["Hear","聲音暴露：朗讀節奏音","agent 朗讀 la-la-la 節奏音與單字，邀請孩子一起發聲，觀察是否轉頭/安靜",["la-la-la"]],
+        ["Hear","親子律動：Clap your hands","agent 說 clap your hands，大人陪著拍手，邀請孩子模仿",["clap","hands"]],
         ["Vision","圖卡凝視訓練","對比鮮明圖卡在眼前 20–30cm 緩慢移動",["—"]]],
-    L1:[["Hear","TPR 指令：Touch your nose","邊說邊做，引導寶寶模仿",["nose","touch"]],
-        ["Read","實物命名：ball","拿起球說 ball，讓寶寶指認",["ball","dog"]],
-        ["Vision","圖卡追蹤：緩慢移動","ball 圖卡在眼前 20–30cm 緩慢左右移動，眼睛跟著走",["ball"]],
+    L1:[["Hear","TPR 指令：Touch your nose","agent 說 Touch your nose，大人示範動作，邀請孩子模仿",["nose","touch"]],
+        ["Read","實物命名：ball","agent 顯示 ball 圖卡並朗讀，邀請孩子指出 ball",["ball","dog"]],
+        ["Vision","圖卡追蹤：緩慢移動","agent 顯示 ball 靜態圖卡邀請孩子看卡，大人可持實體卡陪玩慢移",["ball"]],
         ["Spell","字母音：A（/æ/）","展示 A 磚說 /æ/，鼓勵跟說",["A"]]],
-    L2: [["Hear","節奏跟讀：Twinkle twinkle","agent 朗讀 Twinkle twinkle，親子拍手跟讀",["twinkle","star"]],
-        ["Read","圖卡配對：cat / dog","圖卡配對遊戲",["cat","dog"]],
+    L2: [["Hear","節奏跟讀：Twinkle twinkle","agent 朗讀 Twinkle twinkle，大人陪拍手，邀請孩子跟讀",["twinkle","star"]],
+        ["Read","圖卡配對：cat / dog","agent 顯示 cat、dog 圖卡並朗讀，邀請孩子指認配對",["cat","dog"]],
         ["Spell","拼給 agent：C-A-T","說出三個字母音，agent 核對回饋",["c-a-t"]]],
     L3:[["Hear","What is this 問答","數字人問、寶寶答",["what","this"]],
-        ["Read","主題詞彙：動物","動物主題詞卡指讀",["dog","cat","bird"]],
+        ["Read","主題詞彙：動物","agent 顯示動物圖卡並朗讀，邀請孩子指認",["dog","cat","bird"]],
         ["Spell","Phonics：b-b-ball","首音覺察拼讀",["ball","pig"]]],
     L4:[["Hear","角色扮演：At the park","與數字人扮演公園情境對話",["park","run"]],
-        ["Read","故事複述","看圖說出簡單故事",["story"]],
+        ["Read","故事複述","agent 顯示圖卡，邀請孩子說出簡單故事",["story"]],
         ["Spell","拼字：cat / dog","拼出單字，agent 示範正確拼讀",["cat","dog"]]]
   };
   var pool=pools[lvl]||pools.L2, t=themes[lvl]||themes.L2, weeks=[];
@@ -685,7 +685,7 @@ function generateTeachingPlanLocal(){
     weeks[0].focus=t[0]+"（針對薄弱項："+weak.join("、")+"）";
     var rn=["小遊戲","聽辨練習","追蹤練習","鞏固複習"];
     for(var w2=0;w2<weeks.length;w2++){
-      weeks[w2].lessons[0]={day:"Day 1",pillar:wp,activity:"強化訓練："+weak[0]+rn[w2%rn.length],how:"依薄弱項安排親子小遊戲（每次 "+mins+" 分）",words:"—",goal:"補強薄弱項："+weak[0]};
+      weeks[w2].lessons[0]={day:"Day 1",pillar:wp,activity:"強化訓練："+weak[0]+rn[w2%rn.length],how:"依薄弱項安排小遊戲（每次 "+mins+" 分）",words:"—",goal:"補強薄弱項："+weak[0]};
     }
   }
   S.teachingPlan={generated_at:new Date().toISOString().slice(0,10),level:lvl,weeks:weeks};

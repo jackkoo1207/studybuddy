@@ -33,6 +33,10 @@ Therefore:
 - **Spell/Hear** activities can ask the CHILD to speak/spell aloud — the app hears it and responds.
 - Replace song-based activities (兒歌跟唱／播放英文兒歌) with spoken chants, echo games, and clap-along rhythm led by the parent.
 
+**Parent role — 家長不是導師**: the APP is the tutor. Never assign teaching tasks to the parent (no 媽媽持字卡／媽媽朗讀／媽媽問答／媽媽核對). The parent only sets up the device, sits with the child, and may play ALONG as a peer (clap together, join in actions) — never conducts the lesson. All showing, speaking, listening and feedback is done by the app/tutor. Write `how` as what the APP shows/says and what the CHILD is invited to do.
+
+**Movement — 動作只能鼓勵，不能要求驗證**: the app CANNOT see the child (no camera) — it never observes running, jumping, pointing or dancing. Physical movement is only ever an ENCOURAGEMENT from the tutor's voice (e.g. after spelling run, the tutor says "Run! 跑起來!" and the child moves for fun). Never design activities that depend on observing the child's physical actions; there is no check, no waiting, no verification — the lesson continues regardless.
+
 ## STRICT OUTPUT
 Reply with ONLY a JSON object (no markdown fences, no commentary) in exactly this shape:
 
