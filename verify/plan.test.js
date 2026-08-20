@@ -306,6 +306,26 @@ vm.createContext(sandbox);
     check('P: evaluatePronunciation stores scores', sandbox.lessonStats.pron.dog && sandbox.lessonStats.pron.dog.n === 1 && sandbox.lessonStats.pron.dog.segment === 8.1 && sandbox.lessonStats.pron.dog.integrity === 8.9);
   }
 
+  // ---- progress memory: learned words -> 進度記憶, wrong words -> 常錯 ----
+  {
+    sandbox.S.progress = { mastered_topics: [], learned_words: [] };
+    sandbox.S.mistakes = [];
+    sandbox.lessonStats.attempts = [
+      { word: 'dog', ok: true }, { word: 'dog', ok: false }, { word: 'park', ok: true }
+    ];
+    sandbox.markProgressMemory();
+    check('PM: correct words marked learned, wrong word in mistakes',
+      JSON.stringify(sandbox.S.progress.learned_words) === JSON.stringify(['dog', 'park']) &&
+      sandbox.S.mistakes.length === 1 && sandbox.S.mistakes[0].c === 'dog');
+    sandbox.lessonStats.attempts = [{ word: 'dog', ok: true }];
+    sandbox.markProgressMemory();
+    check('PM: learned words dedupe across sessions', sandbox.S.progress.learned_words.length === 2);
+    sandbox.S.progress = { mastered_topics: [], learned_words: ['dog', 'park'] };
+    sandbox.S.months = 48;
+    sandbox.computeAssessment();
+    check('PM: learned words survive questionnaire regeneration', JSON.stringify(sandbox.S.progress.learned_words) === JSON.stringify(['dog', 'park']));
+  }
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('HARNESS ERROR:', e); process.exit(2); });

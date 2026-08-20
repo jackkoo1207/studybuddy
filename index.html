@@ -602,7 +602,9 @@ function computeAssessment(){
   var env=envLevel(), lvl=englishLevel(), per=inferPersonality(), tier=S.tier||"香港";
   S.phys=physAssessment();
   S.mistakes=buildMistakes(lvl,S.phys);
+  var prevLw=S.progress&&S.progress.learned_words?S.progress.learned_words:[];   // 保留已學會單字（重填問卷不遺失）
   S.progress=buildProgress(lvl,S.phys);
+  S.progress.learned_words=prevLw;
   S.script=buildScript(lvl);
   ci=0;
   var dos=computeDosage(lvl,S.freq||"不確定",S.screen||"適度使用",tier);
@@ -745,9 +747,12 @@ function renderPlan(){
     +(tp?' ｜ 計畫生成於 '+tp.generated_at+'（首次註冊生成一次，登入不會重算；課後 agent 可依學習速度微調，預設不調整）':'');
   renderToday(); renderWeeks();
   var pr=S.progress;
+  var learnedWords=pr&&pr.learned_words&&pr.learned_words.length?pr.learned_words:[];
+  var mistakes=S.mistakes&&S.mistakes.length?S.mistakes:[];
   document.getElementById('progressKV').innerHTML=
     '<b>已掌握</b><div>'+(pr&&pr.mastered_topics.length?pr.mastered_topics.map(function(t){return '<span class="pill">'+t+'</span>';}).join(''):'—')+'</div>'+
-    '<b>常錯</b><div>'+(pr&&pr.recurring_mistakes.length?pr.recurring_mistakes.map(function(m){return m.concept+'（'+m.pillar+'）';}).join('；'):'—')+'</div>'+
+    '<b>已學會單字</b><div>'+(learnedWords.length?learnedWords.map(function(w){return '<span class="pill strong">'+w+'</span>';}).join(''):'—')+'</div>'+
+    '<b>常錯</b><div>'+(mistakes.length?mistakes.map(function(m){return m.c+'（'+m.pillar+'）';}).join('；'):'—')+'</div>'+
     '<b>四支柱</b><div><span class="pill vision">Vision · '+(pr?pr.pillars.vision:'—')+'</span><span class="pill hear">Hear · '+(pr?pr.pillars.hear:'—')+'</span><span class="pill read">Read · '+(pr?pr.pillars.read:'—')+'</span><span class="pill spell">Spell · '+(pr?pr.pillars.spell:'—')+'</span></div>'+
     '<b>下一步</b><div>'+(pr?pr.next_steps.join(' → '):'—')+'</div>';
 }
@@ -1033,6 +1038,35 @@ function finishLessonStats(){
     pe.classList.remove('hidden');
   }
   detectCommonErrors();
+  markProgressMemory();
+}
+
+/* ---- 進度記憶：答對單字 → 已學會；答錯單字 → 常錯 ---- */
+function markProgressMemory(){
+  var learned={}, wrong={};
+  lessonStats.attempts.forEach(function(a){
+    if(!a.word)return;
+    if(a.ok)learned[a.word]=1; else wrong[a.word]=(wrong[a.word]||0)+1;
+  });
+  var lw=Object.keys(learned), wl=Object.keys(wrong);
+  if(!lw.length&&!wl.length)return;
+  var tf=(buildAgentContext().today_focus)||{}, pillar=tf.pillar||'Hear';
+  if(lw.length){
+    S.progress=S.progress||{};
+    var old=S.progress.learned_words||[];
+    lw.forEach(function(w){ if(old.indexOf(w)<0)old.push(w); });
+    S.progress.learned_words=old;
+  }
+  if(wl.length){
+    S.mistakes=S.mistakes||[];
+    wl.forEach(function(w){
+      if(!S.mistakes.some(function(m){return m.c===w;})){
+        var n=wrong[w];
+        S.mistakes.push({c:w,pillar:pillar,drill:n>=3?'連續答錯 '+n+' 次 — 下堂課再練':'答錯 '+n+' 次'});
+      }
+    });
+  }
+  saveSnapshot();
 }
 function saveLessonResult(){
   if(!S.user||!lessonStats.attempts.length)return;
