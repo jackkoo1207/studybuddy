@@ -795,6 +795,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return
             if path == '/api/lesson-answer':
                 # 即時作答記錄：agent 每次 record_answer tool call 都會立刻寫入（不依賴課堂結束）
+                body = self._read_json()
+                if not isinstance(body, dict):
+                    self._send_json(400, {'error': 'bad request'}); return
                 ans = body.get('answer')
                 if not isinstance(ans, dict):
                     self._send_json(400, {'error': 'bad answer'}); return
