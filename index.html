@@ -1034,7 +1034,7 @@ function openConvai(signedUrl, prompt){
         if(af){ af.classList.add('speaking'); clearTimeout(voice.spkTimer); voice.spkTimer=setTimeout(function(){ af.classList.remove('speaking'); },900); }
       }
       else if(d.type==='agent_response'){ var t=rev?(rev.agent_response||rev.text||''):''; if(t){ pushChat('StudyBuddy', t); maybeShowPicture(t); } }
-      else if(d.type==='user_transcript'){ var u=uev?(uev.user_transcript||uev.text||''):''; if(u){ pushChat(S.baby||'寶寶', u); recordChildAnswer(u); } }
+      else if(d.type==='user_transcript'){ var u=uev?(uev.user_transcript||uev.text||''):(d.user_transcript||d.text||''); if(u){ pushChat(S.baby||'寶寶', u); recordChildAnswer(u); } }
       else if(d.type==='conversation_initiation_metadata'){ setVoiceStatus('已連接 · '+((cev&&cev.conversation_id||'').slice(0,8))); }
       else if(d.type==='client_tool_call'){
         var te=d.client_tool_call||d.client_tool_call_event||d.client_tool_call_event_data||d;
@@ -1119,6 +1119,7 @@ function sendStudentText(){
     inp.value=''; return;
   }
   pushChat(S.baby||'👶 寶寶', t);
+  recordChildAnswer(t);   // 打字作答也算（text user_message 不會回傳 user_transcript 事件）
   try{ voice.conn.send(JSON.stringify({type:'user_message',text:t})); }catch(e){}
   inp.value='';
 }
