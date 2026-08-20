@@ -364,7 +364,9 @@ def sync_agent_prompt():
         diag = {
             'first_message': cur.get('first_message'),
             'prompt_head': ((cur.get('prompt') or {}).get('prompt') or '')[:100],
-            'has_dynvar': 'lesson_context' in (cur.get('dynamic_variables') or {})
+            'has_dynvar': 'lesson_context' in (cur.get('dynamic_variables') or {}),
+            'has_turn_taking': 'TURN-TAKING' in p,   # 本機推送的 prompt 是否含強制輪替章節
+            'prompt_len': len(p),
         }
     except Exception:
         pass
