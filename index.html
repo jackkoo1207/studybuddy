@@ -860,20 +860,12 @@ function drawOnWhiteboard(p){
   p=p||{}; var text=(p.text||'').trim(); if(!text)return;
   var wb=document.getElementById('whiteboard'), lines=document.getElementById('wbLines'), em=document.getElementById('wbEmoji'), g=document.getElementById('wbGen');
   if(!wb||!lines)return;
-  var mode=(p.mode==='word'||p.mode==='picture')?p.mode:'both';   // both=字＋圖；word=只有字；picture=只有圖（檢查用，不洩漏答案）
   if(p.clear||boardLines>=4){ lines.innerHTML=''; boardLines=0; boardWords=[]; curWord=null; if(em)em.style.display='none'; setBoardImg(!!(g&&g.style.display==='block')); }
   var key=text.toLowerCase().replace(/\s+/g,' ').trim();
   var word=text.toLowerCase().replace(/[^a-z ]/g,'').trim().split(/\s+/).filter(Boolean)
     .find(function(x){ return EMOJI_WORDS[x]||EMOJI_WORDS[x.replace(/s$/,'')]; });
-  if(boardWords.indexOf(key)>=0){ // 同一句已在白板 → 不重複畫；按模式切換圖卡／文字
-    if(mode==='picture'){ if(word){ em.src=imageForWord(word); em.style.display='block'; setBoardImg(true); curWord=word; } return; }
-    if(mode==='word'){ if(em)em.style.display='none'; setBoardImg(false); return; }
+  if(boardWords.indexOf(key)>=0){ // 同一句已在白板 → 不重複畫，只確保圖卡顯示
     if(word){ em.src=imageForWord(word); em.style.display='block'; setBoardImg(true); }
-    return;
-  }
-  if(mode==='picture'){ // 只顯示圖卡（不畫字）→ 「這是什麼？」檢查
-    if(word){ em.src=imageForWord(word); em.style.display='block'; setBoardImg(true); curWord=word; }
-    else { var d2=document.createElement('div'); d2.className='wb-line'; d2.textContent=text; lines.appendChild(d2); boardLines++; boardWords.push(key); }
     return;
   }
   var div=document.createElement('div'); div.className='wb-line';
@@ -883,9 +875,7 @@ function drawOnWhiteboard(p){
   div.style.color=p.color||((boardLines%3===1)?'#e05d3a':(boardLines%3===2)?'#2a9d5c':'#1b2a4a');
   div.style.transform='rotate('+((boardLines%3)-1)*1.8+'deg)';
   div.textContent=text; lines.appendChild(div); boardLines++; boardWords.push(key);
-  if(mode==='word'){ if(em)em.style.display='none'; setBoardImg(false); }
-  if(word&&mode==='both'){ em.src=imageForWord(word); em.style.display='block'; setBoardImg(true); }
-  curWord=word||curWord;   // 目前教的單字（作答對照基準）
+  if(word){ em.src=imageForWord(word); em.style.display='block'; setBoardImg(true); curWord=word; }  // 目前教的單字（作答對照基準）
 }
 function maybeShowPicture(text){
   var tp=S.teachingPlan, s=S.schedule||{current_week:0,current_lesson:0,completed:[]};
