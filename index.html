@@ -851,7 +851,7 @@ function imageForWord(w){
   return null;
 }
 var boardLines=0, boardWords=[], curWord=null;
-var lessonStats={right:0,wrong:0,attempts:[]};
+var lessonStats={right:0,wrong:0,attempts:[]}, lessonHadActivity=false;
 function setBoardImg(on){
   var wb=document.getElementById('whiteboard');
   if(wb)wb.classList.toggle('has-img',!!on);   // 有圖時文字移到圖下方
@@ -924,15 +924,15 @@ function recordChildAnswer(spoken){
 }
 function finishLessonStats(){
   var n=lessonStats.attempts.length;
-  if(!n)return;                                             // 沒有作答就不顯示
+  if(!n&&!lessonHadActivity)return;                          // 沒有作答也沒有教學活動 → 不顯示
   var r=lessonStats.right, w=lessonStats.wrong;
   var el=document.getElementById('lessonResult');
   if(el){
-    el.innerHTML='📊 本課作答：✅ 答對 '+r+' 題 ｜ ❌ 答錯 '+w+' 題 ｜ 正確率 '+Math.round(r/n*100)+'%'+
-      '<div class="sub">已記錄到資料庫（供統計分析）</div>';
+    el.innerHTML='📊 本課作答：✅ 答對 '+r+' 題 ｜ ❌ 答錯 '+w+' 題 ｜ 正確率 '+(n?Math.round(r/n*100):0)+'%'+
+      (n?'<div class="sub">已記錄到資料庫（供統計分析）</div>':'<div class="sub">未偵測到孩子回應（請確認麥克風權限）</div>');
     el.classList.remove('hidden');
   }
-  saveLessonResult();
+  if(n)saveLessonResult();
 }
 function saveLessonResult(){
   if(!S.user||!lessonStats.attempts.length)return;
@@ -986,7 +986,7 @@ function genImage(){
 function toggleVoiceLesson(){
   if(voice.conn&&voice.conn.readyState===1){ voice.conn.close(); return; }
   if(!S.user){ setVoiceStatus('請先登入'); return; }
-  lessonStats={right:0,wrong:0,attempts:[]};   // 新一課：重置作答統計
+  lessonStats={right:0,wrong:0,attempts:[]}; lessonHadActivity=false;   // 新一課：重置作答統計
   var lr=document.getElementById('lessonResult'); if(lr)lr.classList.add('hidden');
   var ctx=buildAgentContext(), tf=ctx.today_focus;
   var brief=tf?("TODAY'S LESSON — teach exactly this (week "+tf.week+", "+tf.day+"): activity="+tf.activity+", pillar="+tf.pillar+", words="+tf.words+", how="+tf.how+", goal="+tf.goal+"."):"TODAY'S LESSON — none scheduled.";
@@ -1033,15 +1033,19 @@ function openConvai(signedUrl, prompt){
         var af=document.getElementById('avatarFrame');
         if(af){ af.classList.add('speaking'); clearTimeout(voice.spkTimer); voice.spkTimer=setTimeout(function(){ af.classList.remove('speaking'); },900); }
       }
-      else if(d.type==='agent_response'){ var t=rev?(rev.agent_response||rev.text||''):''; if(t){ pushChat('StudyBuddy', t); maybeShowPicture(t); } }
-      else if(d.type==='user_transcript'){ var u=uev?(uev.user_transcript||uev.text||''):(d.user_transcript||d.text||''); if(u){ pushChat(S.baby||'寶寶', u); recordChildAnswer(u); } }
+      else if(d.type==='agent_response'||d.type==='agent_response_event'){ var t=rev?(rev.agent_response||rev.text||''):''; if(t){ lessonHadActivity=true; pushChat('StudyBuddy', t); maybeShowPicture(t); } }
+      else if(d.type==='user_transcript'||d.type==='user_transcript_event'||d.type==='user_transcript_event_data'){
+        var up=uev||d.user_transcript||d;
+        var u=(up&&typeof up==='object')?(up.user_transcript||up.text||''):(up||'');
+        if(u){ pushChat(S.baby||'寶寶', u); recordChildAnswer(u); }
+      }
       else if(d.type==='conversation_initiation_metadata'){ setVoiceStatus('已連接 · '+((cev&&cev.conversation_id||'').slice(0,8))); }
       else if(d.type==='client_tool_call'){
         var te=d.client_tool_call||d.client_tool_call_event||d.client_tool_call_event_data||d;
         var tc=te.tool_call_id||'';
         var tn=te.tool_name||'';
         var tp=te.parameters||{};
-        if(tn==='draw_on_whiteboard'){ drawOnWhiteboard(tp); pushChat('📋 白板', '"'+(tp.text||'')+'"'); }
+        if(tn==='draw_on_whiteboard'){ lessonHadActivity=true; drawOnWhiteboard(tp); pushChat('📋 白板', '"'+(tp.text||'')+'"'); }
         try{ ws.send(JSON.stringify({type:'client_tool_result',tool_call_id:tc,result:'ok',is_error:false})); }catch(e){}
       }
       else if(d.type==='ping'){ try{ ws.send(JSON.stringify({type:'pong',event_id:(d.ping_event&&d.ping_event.event_id)||0})); }catch(e){} }
