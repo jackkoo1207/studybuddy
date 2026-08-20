@@ -5,7 +5,7 @@
 #   ELEVENLABS_API_KEY / ElEVENLABS_TOKEN / ELEVENLABS_TOKEN   ElevenLabs key（擇一）
 #   DATABASE_PRIVATE_URL 或 DATABASE_URL                        Postgres 連線（Railway: ${{ Postgres.DATABASE_PRIVATE_URL }}）
 #   PORT / SB_PORT                                             監聽埠（Railway 注入 PORT）
-import http.server, os, json, socketserver, sys, re, hashlib, hmac, secrets, urllib.parse, urllib.request, threading
+import http.server, os, json, socketserver, sys, re, hashlib, hmac, secrets, base64, urllib.parse, urllib.request, threading
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
@@ -79,6 +79,18 @@ SCHEMA = [
   child_said TEXT NOT NULL DEFAULT '',
   correct BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT now())""",
+"""CREATE TABLE IF NOT EXISTS common_errors(
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  word TEXT NOT NULL,
+  reason TEXT NOT NULL DEFAULT '',
+  score REAL NOT NULL DEFAULT 0,
+  fails INTEGER NOT NULL DEFAULT 0,
+  week_num INTEGER NOT NULL DEFAULT 0,
+  day TEXT NOT NULL DEFAULT '',
+  pillar TEXT NOT NULL DEFAULT '',
+  lesson_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  created_at TIMESTAMPTZ DEFAULT now())""",
 ]
 
 # ---------- ElevenLabs 簽名 URL（key 只留在伺服器端，瀏覽器永不接觸 key） ----------
@@ -123,6 +135,60 @@ def _env_api_key():
     except FileNotFoundError:
         pass
     return ''
+
+SPEECHX_ENDPOINT = 'https://api03.speechx.cn:8443/MDD_Server/mdd_v18'
+
+def _speechx_key():
+    for name in ('SPEECHX_API_KEY', 'MDD_API_KEY', 'SPEECHX_KEY'):
+        v = os.environ.get(name, '').strip()
+        if v:
+            return v
+    for k, val in os.environ.items():
+        ku = k.upper()
+        if ('SPEECHX' in ku or 'MDD' in ku) and ('KEY' in ku or 'TOKEN' in ku):
+            val = val.strip()
+            if val:
+                return val
+    return ''
+
+def _speechx_assess(wav, word, user_id):
+    """SpeechX MDD v18：16kHz mono WAV + word -> 10-point scores（multipart only）。"""
+    key = _speechx_key()
+    if not key:
+        return None, 'SPEECHX_API_KEY 未設定'
+    boundary = 'BND-sb-%s' % secrets.token_hex(8)
+    body = b''
+    body += b'--%s\r\nContent-Disposition: form-data; name="myWavfile"; filename="pronunciation.wav"\r\n' % boundary.encode()
+    body += b'Content-Type: audio/wav\r\n\r\n' + wav + b'\r\n'
+    body += b'--%s\r\nContent-Disposition: form-data; name="word_name"\r\n\r\n' % boundary.encode() + word.encode() + b'\r\n'
+    body += b'--%s\r\nContent-Disposition: form-data; name="user_id"\r\n\r\n' % boundary.encode() + user_id.encode() + b'\r\n'
+    body += b'--%s--\r\n' % boundary.encode()
+    req = urllib.request.Request(SPEECHX_ENDPOINT, data=body, method='POST',
+        headers={'Authorization': 'Bearer ' + key,
+                 'Content-Type': 'multipart/form-data; boundary=' + boundary})
+    try:
+        out = urllib.request.urlopen(req, timeout=30).read().decode('utf-8', 'ignore')
+    except urllib.error.HTTPError as e:
+        return None, 'MDD HTTP %s: %s' % (e.code, e.read().decode('utf-8', 'ignore')[:200])
+    except Exception as e:
+        return None, 'MDD 連線失敗: %s' % str(e)[:150]
+    try:
+        j = json.loads(out)
+    except Exception:
+        return None, 'MDD 回應非 JSON: ' + out[:200]
+    if j.get('err_code') or j.get('code'):
+        return None, 'MDD err %s: %s' % (j.get('err_code') or j.get('code'), (j.get('msg') or j.get('message') or '')[:150])
+    ds = j.get('detail_score') or {}
+    try:
+        return {
+            'score': float(j.get('score') or 0),
+            'segment': float(ds.get('segment') or 0),
+            'fluency': float(ds.get('fluency') or 0),
+            'integrity': float(ds.get('integrity') or 0),
+            'overall': float(ds.get('overall') or 0),
+        }, None
+    except (TypeError, ValueError):
+        return None, 'MDD 分數格式異常: ' + out[:200]
 
 def _voice_id():
     for name in ('VOICE_ID', 'ELEVENLABS_VOICE_ID', 'ELEVENLABS_DEFAULT_VOICE_ID'):
@@ -573,6 +639,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 'ok': True, 'db': bool(DB_URL), 'db_host': host, 'db_err': _db_err or None,
                 'deepseek': bool(_deepseek_key()), 'deepseek_ok': deepseek_ping(), 'voice_id': _voice_id() or None,
                 'packy_image': bool(_packy_key()), 'packy_model': PACKY_IMAGE_MODEL,
+                'speechx': bool(_speechx_key()),
             })
             return
         if path == '/api/packy-models':
@@ -661,6 +728,29 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 } for r in rows]})
             except Exception as e:
                 sys.stderr.write('[serve.py] /api/lesson-answers error: %s\n' % e)
+                self._send_json(500, {'error': 'server error', 'detail': str(e)[:200]})
+            return
+        if path == '/api/common-errors':
+            try:
+                with DB_LOCK:
+                    c = self._require_db()
+                    if c is None:
+                        return
+                    uid = user_by_token(c, self._bearer())
+                    if uid is None:
+                        self._send_json(401, {'error': 'unauthorized'})
+                        return
+                    with _cur(c) as cur:
+                        cur.execute(
+                            'SELECT word,reason,score,fails,week_num,day,pillar,lesson_date,created_at '
+                            'FROM common_errors WHERE user_id=%s ORDER BY id DESC LIMIT 100', (uid,))
+                        rows = cur.fetchall()
+                self._send_json(200, {'errors': [{
+                    'word': r[0], 'reason': r[1], 'score': r[2], 'fails': r[3],
+                    'week_num': r[4], 'day': r[5], 'pillar': r[6], 'lesson_date': str(r[7]), 'created_at': str(r[8]),
+                } for r in rows]})
+            except Exception as e:
+                sys.stderr.write('[serve.py] /api/common-errors error: %s\n' % e)
                 self._send_json(500, {'error': 'server error', 'detail': str(e)[:200]})
             return
         super().do_GET()
@@ -815,6 +905,48 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                          str(ans.get('activity') or '')[:100], str(ans.get('pillar') or '')[:50],
                          str(ans.get('words') or '')[:200], str(ans.get('word') or '')[:50],
                          str(ans.get('child_said') or '')[:100], bool(ans.get('correct'))))
+                c.commit()
+                self._send_json(200, {'ok': True})
+                return
+            if path == '/api/eval-pronunciation':
+                # 答對的單字 → 送 SpeechX MDD 評發音（16kHz WAV base64 + word）
+                body = self._read_json()
+                if not isinstance(body, dict):
+                    self._send_json(400, {'error': 'bad request'}); return
+                uid = user_by_token(c, self._bearer())
+                if uid is None:
+                    self._send_json(401, {'error': 'unauthorized'}); return
+                word = (body.get('word') or '').strip()
+                if not word or len(word) > 1200:
+                    self._send_json(400, {'error': 'bad word'}); return
+                try:
+                    wav = base64.b64decode(body.get('wav_base64') or '')
+                except Exception:
+                    self._send_json(400, {'error': 'bad base64'}); return
+                if len(wav) < 512 or len(wav) > 1_500_000:
+                    self._send_json(400, {'error': 'wav size %d out of range (512..1500000)' % len(wav)}); return
+                scores, err = _speechx_assess(wav, word, 'sb_' + str(uid))
+                if err:
+                    self._send_json(502, {'error': err}); return
+                self._send_json(200, scores)
+                return
+            if path == '/api/common-error':
+                # 常見錯誤：分數 <5 或同字答錯 ≥3 次 → 記錄（供「常見概念性錯誤」頁 + analytics）
+                body = self._read_json()
+                if not isinstance(body, dict):
+                    self._send_json(400, {'error': 'bad request'}); return
+                uid = user_by_token(c, self._bearer())
+                if uid is None:
+                    self._send_json(401, {'error': 'unauthorized'}); return
+                er = body.get('error') or body
+                with _cur(c) as cur:
+                    cur.execute(
+                        'INSERT INTO common_errors(user_id,word,reason,score,fails,week_num,day,pillar) '
+                        'VALUES(%s,%s,%s,%s,%s,%s,%s,%s)',
+                        (uid, str(er.get('word') or '')[:50], str(er.get('reason') or '')[:20],
+                         float(er.get('score') or 0), int(er.get('fails') or 0),
+                         int(er.get('week_num') or 0), str(er.get('day') or '')[:50],
+                         str(er.get('pillar') or '')[:50]))
                 c.commit()
                 self._send_json(200, {'ok': True})
                 return

@@ -72,6 +72,15 @@ function fakeFetch(url, opt) {
     (server.answers = server.answers || []).push(body.answer || {});
     return send(200, { ok: true });
   }
+  if (method === 'POST' && path === '/api/eval-pronunciation') {
+    const u = user(); if (!u) return send(401, {});
+    return send(200, { score: 8.1, segment: 8.1, fluency: 8.1, integrity: 8.9, overall: 8.1 });
+  }
+  if (method === 'POST' && path === '/api/common-error') {
+    const u = user(); if (!u) return send(401, {});
+    (server.commonErrors = server.commonErrors || []).push(body.error || body);
+    return send(200, { ok: true });
+  }
   return send(404, { error: 'not found' });
 }
 
@@ -94,6 +103,7 @@ function el(id) {
 const storage = new Map();
 const sandbox = {
   console, setTimeout, Date, Math, JSON, parseInt, isNaN, alert() {},
+  btoa: s => Buffer.from(s, 'binary').toString('base64'),
   fetch: fakeFetch,
   localStorage: { getItem: k => storage.has(k) ? storage.get(k) : null, setItem: (k, v) => storage.set(k, v), removeItem: k => storage.delete(k) },
   document: { getElementById: el, querySelectorAll: sel => sel === '.opt' ? opts : [], addEventListener() {}, createElement: el },
@@ -257,6 +267,43 @@ vm.createContext(sandbox);
     check('T: agent tool counts right/wrong', sandbox.lessonStats.right === 2 && sandbox.lessonStats.wrong === 1 && sandbox.lessonStats.attempts.length === 3 && sandbox.agentToolMode === true);
     await tick();
     check('T: every answer persisted to DB in real time', (server.answers || []).length === 3 && server.answers[0].word === 'dog' && server.answers[0].correct === true && server.answers[1].correct === false && server.answers[2].word === 'park');
+  }
+
+  // ---- pronunciation eval (SpeechX MDD pipeline) ----
+  {
+    sandbox.micBuf = new Float32Array(16000);
+    for (let i = 0; i < sandbox.micBuf.length; i++) sandbox.micBuf[i] = (i % 101) / 101 - 0.5;
+    sandbox.micPos = sandbox.micBuf.length;
+    const raw = Buffer.from(sandbox.captureWav(0.5), 'base64');
+    check('P: captureWav => 16k mono PCM16 WAV', raw.slice(0, 4).toString() === 'RIFF' && raw.slice(8, 12).toString() === 'WAVE' && raw.readUInt16LE(22) === 1 && raw.readUInt32LE(24) === 16000 && raw.readUInt16LE(34) === 16 && raw.length === 44 + 8000 * 2);
+
+    sandbox.lessonStats.pron = {
+      dog: { n: 2, segment: 16.0, fluency: 16.0, integrity: 17.8, overall: 16.0 },
+      park: { n: 1, segment: 8.0, fluency: 8.0, integrity: 8.8, overall: 8.1 }
+    };
+    const ps = sandbox.pronSummary();
+    check('P: pronSummary per-word averages + net', ps.words.length === 2 && ps.words[0].word === 'dog' && ps.words[0].segment === 8.0 && ps.words[0].integrity === 8.9 && ps.n === 2 && ps.segment === 8.0 && ps.fluency === 8.0 && ps.integrity === 8.9);
+
+    sandbox.lessonStats.attempts = [
+      { word: 'dog', ok: false }, { word: 'dog', ok: false }, { word: 'dog', ok: false },
+      { word: 'park', ok: false }
+    ];
+    sandbox.lessonStats.pron = {
+      dog: { n: 1, segment: 8.0, fluency: 8.0, integrity: 8.0, overall: 8.0 },
+      park: { n: 1, segment: 4.0, fluency: 4.0, integrity: 4.0, overall: 4.0 }
+    };
+    server.commonErrors = [];
+    sandbox.detectCommonErrors();
+    await tick();
+    check('P: 3-fail and low-score words flagged as common errors', (server.commonErrors || []).length === 2 && server.commonErrors.some(e => e.word === 'dog' && e.reason === 'fail_count') && server.commonErrors.some(e => e.word === 'park' && e.reason === 'low_score'));
+    check('P: common errors appended to S.mistakes', (sandbox.S.mistakes || []).some(m => m.c === 'dog') && (sandbox.S.mistakes || []).some(m => m.c === 'park'));
+
+    sandbox.lessonStats.pron = {};
+    sandbox.micBuf = new Float32Array(16000); sandbox.micBuf.fill(0.1);
+    sandbox.micPos = sandbox.micBuf.length;
+    sandbox.evaluatePronunciation('dog');
+    await tick();
+    check('P: evaluatePronunciation stores scores', sandbox.lessonStats.pron.dog && sandbox.lessonStats.pron.dog.n === 1 && sandbox.lessonStats.pron.dog.segment === 8.1 && sandbox.lessonStats.pron.dog.integrity === 8.9);
   }
 
   console.log(`\n${pass} passed, ${fail} failed`);

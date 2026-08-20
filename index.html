@@ -96,7 +96,9 @@
     font-size:13px;max-height:180px;overflow:auto;box-shadow:0 2px 8px rgba(20,30,60,.05)}
   .lesson-result{width:100%;background:#e8f7ee;border:2px dashed #2a9d5c;border-radius:12px;padding:8px 12px;
     font-size:13px;font-weight:700;color:#1b6b3d;text-align:center;box-shadow:0 2px 8px rgba(20,30,60,.05)}
+  .lesson-result.pron{background:#eef4ff;border-color:#4a7dff;color:#1b4bd3}
   .lesson-result .sub{font-size:11px;font-weight:400;color:#4a8a63;margin-top:2px}
+  .lesson-result.pron .sub{color:#5a7bc8}
   .bubble .mini{font-size:12px;line-height:1.5}
   .bubble .mini .who{font-size:10px;color:var(--muted)}
   .bubble .mini.bot{background:#eef2ff;border-radius:10px;padding:6px 9px;margin:6px 0;display:inline-block;max-width:100%}
@@ -258,6 +260,7 @@
             <div class="avatar-frame" id="avatarFrame"><img src="asserts/Placeholder.jpg" alt="StudyBuddy 導師" /></div>
             <div class="bubble" id="bubbleLog"><div class="bubble-empty" id="bubbleEmpty">🪑 導師還沒說話…按 🎤 開始課堂</div></div>
             <div class="lesson-result hidden" id="lessonResult"></div>
+            <div class="lesson-result pron hidden" id="pronResult"></div>
           </div>
         </div>
         <div class="inputbar">
@@ -852,6 +855,7 @@ function imageForWord(w){
 }
 var boardLines=0, boardWords=[], curWord=null;
 var lessonStats={right:0,wrong:0,attempts:[]}, lessonHadActivity=false, agentToolMode=false;
+var micBuf=new Float32Array(0), micPos=0, micFull=false;   // 發音評分用麥克風環形緩衝
 function setBoardImg(on){
   var wb=document.getElementById('whiteboard');
   if(wb)wb.classList.toggle('has-img',!!on);   // 有圖時文字移到圖下方
@@ -936,6 +940,7 @@ function recordAgentAnswer(ok,word,said){   // agent 透過 record_answer 工具
   var a={word:(word||curWord||''),said:(said||'').slice(0,60),ok:!!ok,ts:Date.now()};
   lessonStats.attempts.push(a);
   saveAnswerNow(a);   // 即時寫入資料庫（不依賴課堂結束）
+  if(ok&&a.word)evaluatePronunciation(a.word);   // 答對才送 SpeechX 評發音
 }
 function saveAnswerNow(a){
   if(!S.user)return;
@@ -944,6 +949,66 @@ function saveAnswerNow(a){
     week_num:tf.week||0, day:tf.day||'', activity:tf.activity||'', pillar:tf.pillar||'', words:tf.words||'',
     word:a.word, child_said:a.said, correct:a.ok
   }}).catch(function(){});
+}
+
+/* ---- 發音評分（SpeechX MDD）：擷取麥克風尾段 → 16kHz WAV → 伺服器轉送 ---- */
+function wavWriteStr(v,off,s){ for(var i=0;i<s.length;i++)v.setUint8(off+i,s.charCodeAt(i)); }
+function captureWav(secs){
+  var n=Math.min(micBuf.length,Math.max(8000,Math.round((secs||3.5)*16000)));
+  var out=new Int16Array(n);
+  var start=micPos-n; if(start<0)start+=micBuf.length;
+  for(var i=0;i<n;i++){ var s=micBuf[(start+i)%micBuf.length]; out[i]=Math.max(-32768,Math.min(32767,Math.round(s*32767))); }
+  var buf=new ArrayBuffer(44+n*2), v=new DataView(buf);
+  wavWriteStr(v,0,'RIFF'); v.setUint32(4,36+n*2,true); wavWriteStr(v,8,'WAVE'); wavWriteStr(v,12,'fmt ');
+  v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,16000,true); v.setUint32(28,32000,true); v.setUint16(32,2,true); v.setUint16(34,16,true);
+  wavWriteStr(v,36,'data'); v.setUint32(40,n*2,true);
+  for(var k=0;k<n;k++)v.setInt16(44+k*2,out[k],true);
+  var bytes=new Uint8Array(buf), bin='';
+  for(var k2=0;k2<bytes.length;k2++)bin+=String.fromCharCode(bytes[k2]);
+  return btoa(bin);
+}
+function evaluatePronunciation(word){
+  if(micBuf.length<8000)return;   // 沒開過麥克風就不評
+  var b64=captureWav(3.5);
+  apiFetch('POST','/api/eval-pronunciation',{wav_base64:b64,word:word}).then(function(r){
+    if(!r.ok||!r.j||r.j.error)return;
+    var P=lessonStats.pron||(lessonStats.pron={});
+    var p=P[word]||(P[word]={n:0,segment:0,fluency:0,integrity:0,overall:0});
+    p.n++; p.segment+=r.j.segment||0; p.fluency+=r.j.fluency||0; p.integrity+=r.j.integrity||0; p.overall+=r.j.overall||0;
+  }).catch(function(){});
+}
+function pronSummary(){
+  var P=lessonStats.pron||{}, out={words:[],segment:0,fluency:0,integrity:0,overall:0,n:0};
+  Object.keys(P).forEach(function(w){
+    var p=P[w], seg=+(p.segment/p.n).toFixed(1), flu=+(p.fluency/p.n).toFixed(1), itg=+(p.integrity/p.n).toFixed(1), ov=+(p.overall/p.n).toFixed(1);
+    out.words.push({word:w,segment:seg,fluency:flu,integrity:itg,overall:ov,n:p.n});
+    out.segment+=seg; out.fluency+=flu; out.integrity+=itg; out.overall+=ov; out.n++;
+  });
+  if(out.n){ out.segment=+(out.segment/out.n).toFixed(1); out.fluency=+(out.fluency/out.n).toFixed(1); out.integrity=+(out.integrity/out.n).toFixed(1); out.overall=+(out.overall/out.n).toFixed(1); }
+  return out;
+}
+function detectCommonErrors(){
+  var P=lessonStats.pron||{}, fails={};
+  lessonStats.attempts.forEach(function(a){ if(!a.ok&&a.word)fails[a.word]=(fails[a.word]||0)+1; });
+  var tf=(buildAgentContext().today_focus)||{}, pillar=tf.pillar||'Hear';
+  var found=[];
+  Object.keys(P).forEach(function(w){
+    var avg=P[w].overall/P[w].n;
+    if(avg<5)found.push({word:w,reason:'low_score',score:+avg.toFixed(1),fails:fails[w]||0});
+  });
+  Object.keys(fails).forEach(function(w){
+    if(fails[w]>=3&&!found.some(function(f){return f.word===w&&f.reason==='low_score';}))
+      found.push({word:w,reason:'fail_count',score:0,fails:fails[w]});
+  });
+  found.forEach(function(f){
+    apiFetch('POST','/api/common-error',{error:{word:f.word,reason:f.reason,score:f.score,fails:f.fails,week_num:tf.week||0,day:tf.day||'',pillar:pillar}}).catch(function(){});
+    S.mistakes=S.mistakes||[];
+    if(!S.mistakes.some(function(m){return m.c===f.word;})){
+      S.mistakes.push({c:f.word,pillar:pillar,drill:'發音需加強（'+(f.reason==='low_score'?'分數偏低 '+f.score+'/10':'連續答錯 '+f.fails+' 次')+'）— 下堂課再練'});
+      saveSnapshot();
+    }
+  });
 }
 function finishLessonStats(){
   var n=lessonStats.attempts.length;
@@ -956,6 +1021,18 @@ function finishLessonStats(){
     el.classList.remove('hidden');
   }
   if(n)saveLessonResult();
+  var ps=pronSummary();
+  var pe=document.getElementById('pronResult');
+  if(pe&&ps.n){
+    pe.innerHTML='🎙️ 發音評分'+
+      ps.words.map(function(w){
+        return '<div class="sub">'+w.word+'：音准 '+w.segment.toFixed(1)+' ｜ 流利度 '+w.fluency.toFixed(1)+' ｜ 完整度 '+w.integrity.toFixed(1)+'</div>';
+      }).join('')+
+      '<div style="margin-top:4px">音准 (segment) '+ps.segment.toFixed(1)+'/10 ｜ 流利度 (fluency) '+ps.fluency.toFixed(1)+'/10 ｜ 完整度 (integrity) '+ps.integrity.toFixed(1)+'/10</div>'+
+      '<div class="sub">已記錄到資料庫（供統計分析）</div>';
+    pe.classList.remove('hidden');
+  }
+  detectCommonErrors();
 }
 function saveLessonResult(){
   if(!S.user||!lessonStats.attempts.length)return;
@@ -1011,6 +1088,7 @@ function toggleVoiceLesson(){
   if(!S.user){ setVoiceStatus('請先登入'); return; }
   lessonStats={right:0,wrong:0,attempts:[]}; lessonHadActivity=false; agentToolMode=false;   // 新一課：重置作答統計
   var lr=document.getElementById('lessonResult'); if(lr)lr.classList.add('hidden');
+  var pr=document.getElementById('pronResult'); if(pr)pr.classList.add('hidden');
   var ctx=buildAgentContext(), tf=ctx.today_focus;
   var brief=tf?("TODAY'S LESSON — teach exactly this (week "+tf.week+", "+tf.day+"): activity="+tf.activity+", pillar="+tf.pillar+", words="+tf.words+", how="+tf.how+", goal="+tf.goal+"."):"TODAY'S LESSON — none scheduled.";
   var prompt=PROTOCOL_TEXT+'\n\n'+brief+'\n\nLESSON CONTEXT (JSON) — INTERNAL DATA, NEVER READ ALOUD:\n'+JSON.stringify(ctx,null,2)+"\n\nTeach the child step by step in English. Follow TODAY'S LESSON exactly. Use the draw_on_whiteboard tool to write every new word on the whiteboard before speaking it. Speak ONLY natural lesson speech.";
@@ -1094,13 +1172,15 @@ function startMic(){
     var src=actx.createMediaStreamSource(stream);
     var proc=actx.createScriptProcessor(1024,1,1);
     src.connect(proc); proc.connect(actx.destination);
+    micBuf=new Float32Array(16000*6); micPos=0; micFull=false;   // 6 秒環形緩衝（發音評分用）
     proc.onaudioprocess=function(e){
       if(!voice.conn||voice.conn.readyState!==1)return;
       var inData=e.inputBuffer.getChannelData(0), step=Math.max(1,Math.round(actx.sampleRate/16000));
       var out=new Int16Array(Math.floor(inData.length/step));
       for(var i=0,j=0;i<inData.length;i+=step){ var s=inData[i]; out[j++]=Math.round(Math.max(-1,Math.min(1,s))*32767); }
+      for(var k=0;k<out.length;k++){ micBuf[micPos]=out[k]/32767; micPos=(micPos+1)%micBuf.length; if(micPos===0)micFull=true; }
       var b=new Uint8Array(out.buffer), s2='';
-      for(var k=0;k<b.length;k++)s2+=String.fromCharCode(b[k]);
+      for(var k2=0;k2<b.length;k2++)s2+=String.fromCharCode(b[k2]);
       voice.conn.send(JSON.stringify({type:'user_audio_chunk',user_audio_chunk:btoa(s2)}));
     };
   }).catch(function(err){ setVoiceStatus('麥克風失敗：'+err.message); });
