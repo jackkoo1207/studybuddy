@@ -411,6 +411,17 @@ def sync_agent_prompt():
         cur = (gout.get('conversation_config') or {}).get('agent') or {}
         cur_prompt = cur.get('prompt') or {}
         tools = list(cur_prompt.get('tools') or [])
+        for t in tools:   # 為 draw_on_whiteboard 補上 mode 參數（both/word/picture）
+            if (t or {}).get('name') == 'draw_on_whiteboard':
+                t.setdefault('parameters', {})
+                t['parameters'].setdefault('properties', {})
+                if 'mode' not in t['parameters']['properties']:
+                    t['parameters']['properties']['mode'] = {
+                        'type': 'string',
+                        'description': "Display variant: 'both' (word + picture, default), 'word' (word ONLY, hide the cartoon picture), 'picture' (cartoon picture ONLY, no word — use for 'what is this?' checks so the answer is not leaked).",
+                        'enum': ['both', 'word', 'picture'], 'is_system_provided': False, 'dynamic_variable': '',
+                        'allowed_values_dynamic_variable': '', 'constant_value': '', 'is_omitted': False,
+                    }
         if not any((t or {}).get('name') == 'record_answer' for t in tools):
             tools.append(RECORD_ANSWER_TOOL)   # 合併新增 client tool（保留 draw_on_whiteboard）
         diag = {

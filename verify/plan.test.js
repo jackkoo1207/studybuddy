@@ -252,6 +252,19 @@ vm.createContext(sandbox);
     check('T: every answer persisted to DB in real time', (server.answers || []).length === 3 && server.answers[0].word === 'dog' && server.answers[0].correct === true && server.answers[1].correct === false && server.answers[2].word === 'park');
   }
 
+  // ---- whiteboard draw modes (both / word / picture) ----
+  {
+    const wbEm = sandbox.document.getElementById('wbEmoji');
+    sandbox.drawOnWhiteboard({ text: 'cat', clear: true });
+    check('M: both mode shows word + picture', sandbox.boardWords.length === 1 && wbEm.style.display === 'block' && sandbox.curWord === 'cat');
+    sandbox.drawOnWhiteboard({ text: 'cat', mode: 'word' });
+    check('M: word mode hides picture, no new line', wbEm.style.display === 'none' && sandbox.boardLines === 1);
+    sandbox.drawOnWhiteboard({ text: 'cat', mode: 'picture' });
+    check('M: picture mode shows pic only, no new line', wbEm.style.display === 'block' && sandbox.boardLines === 1 && sandbox.curWord === 'cat');
+    sandbox.drawOnWhiteboard({ text: 'dog', mode: 'picture', clear: true });
+    check('M: picture mode on new word draws no text', sandbox.boardLines === 0 && sandbox.boardWords.length === 0 && wbEm.style.display === 'block' && sandbox.curWord === 'dog');
+  }
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('HARNESS ERROR:', e); process.exit(2); });
