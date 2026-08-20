@@ -739,6 +739,8 @@ if __name__ == '__main__':
     vid = apply_voice_id()
     if vid:
         print('Voice ID applied to agent:', vid)
+    p_ok, p_err = sync_agent_prompt()
+    print('Tutor prompt synced to agent:', p_ok if p_ok else ('FAILED: ' + (p_err or '')))
     socketserver.ThreadingTCPServer.allow_reuse_address = True
     socketserver.ThreadingTCPServer.daemon_threads = True  # 多執行緒：DeepSeek 慢呼叫不阻塞其他請求
     with socketserver.ThreadingTCPServer(('', PORT), Handler) as httpd:
