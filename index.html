@@ -310,7 +310,7 @@ var CLUE={explorer:["好動","坐不住","好奇","到處爬","愛跑"],
 var LEVEL_NAME={"L0":"Sound Exposure","L1":"Word Awareness","L2":"Phrase Builder","L3":"Early Talker","L4":"Pre-A1 Starters"};
 var CONTENT_TOPIC={"L0":"Nursery rhymes","L1":"Family & pets","L2":"Pets & food","L3":"Animals at the park","L4":"At the park story"};
 var CONTENT_WORDS={"L0":["clap","wave"],"L1":["mama","cat","dog","ball"],"L2":["cat","dog","apple","milk"],"L3":["dog","run","bird","tree"],"L4":["park","run","cat","dog"]};
-var CONTENT_STYLE={"L0":"聲音暴露＋律動","L1":"TPR＋實物命名","L2":"圖卡配對＋節奏跟讀","L3":"簡單問答＋Phonics","L4":"角色扮演＋故事複述"};
+var CONTENT_STYLE={"L0":"聲音暴露＋律動","L1":"聽讀＋圖卡認讀","L2":"圖卡配對＋節奏跟讀","L3":"簡單問答＋Phonics","L4":"角色扮演＋故事複述"};
 
 /* 登入：純前端 localStorage 示範（無後端、無 Firebase）。 */
 
@@ -453,7 +453,7 @@ function sScore(k){
 }
 function buildMistakes(){ return []; } // 概念性錯誤需課堂練習中觀察累積；尚未上課 → 空白
 var NEXT_STEPS={"L0":["聲音暴露：每日朗讀 5 分鐘","親子律動：Clap your hands"],
-  "L1":["TPR 指令：Touch your nose","實物命名：ball / dog"],
+  "L1":["聽聲指圖：nose / ball","圖卡認讀：ball / dog"],
   "L2":["節奏跟讀：Twinkle Twinkle","圖卡配對：cat / dog"],
   "L3":["數字人問答：What is this?","Phonics：b-b-ball 首音"],
   "L4":["角色扮演：At the park","故事複述：看圖說故事"]};
@@ -487,11 +487,11 @@ function buildScript(lvl){
   var w=CONTENT_WORDS[lvl]||["cat","dog","run"], w1=w[0], w2=w[1]||w[0];
   var T={
     L0:[["Hello baby! Listen: la la la! 🎵","兒歌節奏啟動（聲音暴露）"],
-        ["Can you clap? Clap, clap!","TPR：拍手"],
-        ["Good! Now wave bye-bye! 👋","TPR：揮手結束"]],
+        ["Can you clap? Clap, clap!","動作：拍手"],
+        ["Good! Now wave bye-bye! 👋","動作：揮手結束"]],
     L1:[["Hello! What is this? 👀","指物提問（實物命名）"],
         ["It's a "+w1+". Say: "+w1+"!","跟讀目標詞 "+w1],
-        ["Great! Touch your nose!","TPR：Touch your nose"]],
+        ["Great! Touch your nose!","動作：Touch your nose"]],
     L2:[["Hi! Listen: Twinkle, twinkle! ⭐","節奏跟讀"],
         ["What color? It's red!","顏色詞彙"],
         ["Can you say: "+w1+" and "+w2+"?","跟讀目標詞"]],
@@ -647,7 +647,7 @@ function generateTeachingPlanLocal(){
   var freq=Math.max(2,Math.min(6,dos.frequency_per_week)), mins=dos.session_min;
   var themes={
     L0:["聲音暴露與律動","朗讀與節奏","親子互動聽力","綜合複習＋升級預覽"],
-    L1:["實物命名與聽力","TPR 指令","簡單繪本共讀","綜合複習＋升級預覽"],
+    L1:["圖卡認讀與聽力","聽讀遊戲","簡單繪本共讀","綜合複習＋升級預覽"],
     L2:["節奏跟讀","圖卡配對","簡單問答","綜合複習＋升級預覽"],
     L3:["主題詞彙","What is this 問答","Phonics 首音","綜合複習＋升級預覽"],
     L4:["角色扮演對話","故事複述","拼讀輸出","綜合複習＋升級預覽"]
@@ -656,7 +656,7 @@ function generateTeachingPlanLocal(){
     L0: [["Hear","聲音暴露：朗讀節奏音","agent 朗讀 la-la-la 節奏音與單字，邀請孩子一起發聲，觀察是否轉頭/安靜",["la-la-la"]],
         ["Hear","親子律動：Clap your hands","agent 說 clap your hands，大人陪著拍手，邀請孩子模仿",["clap","hands"]],
         ["Vision","圖卡凝視訓練","對比鮮明圖卡在眼前 20–30cm 緩慢移動",["—"]]],
-    L1:[["Hear","TPR 指令：Touch your nose","agent 說 Touch your nose，大人示範動作，邀請孩子模仿",["nose","touch"]],
+    ["Hear","聽聲指圖：nose","agent 朗讀 nose，孩子指出 nose 圖卡並跟讀",["nose","touch"]],
         ["Read","實物命名：ball","agent 顯示 ball 圖卡並朗讀，邀請孩子指出 ball",["ball","dog"]],
         ["Vision","圖卡追蹤：緩慢移動","agent 顯示 ball 靜態圖卡邀請孩子看卡，大人可持實體卡陪玩慢移",["ball"]],
         ["Spell","字母音：A（/æ/）","展示 A 磚說 /æ/，鼓勵跟說",["A"]]],

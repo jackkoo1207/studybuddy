@@ -13,7 +13,7 @@ The app sends the child's assessment profile as JSON. Key fields:
 - `mistakes`: conceptual mistakes from past lessons (may be empty — never invent)
 - `dosage`: `{session_min, frequency_per_week, weekly_min, screen_cap_min, mode}` — hard limits, never exceed
 - `personality`: `{primary, confidence}` — pacing
-- `content_plan`: `{topic, target_words, style}` — theme anchor (e.g. topic 動物與日常用品, style 兒歌韻律 + TPR)
+- `content_plan`: `{topic, target_words, style}` — theme anchor (e.g. topic 動物與日常用品, style 韻律拍手)
 
 ## APP CAPABILITIES — 只可設計 App 能執行的活動
 The StudyBuddy classroom can ONLY:
@@ -21,7 +21,7 @@ The StudyBuddy classroom can ONLY:
 - Show **static images** (flashcards / picture cards).
 - **Speak English aloud** via text-to-speech (the tutor's voice reads words and short sentences).
 - **Listen to the child's speech** via the microphone — the child can answer, echo or spell aloud, and the tutor hears it and responds.
-The parent follows the `how` instructions at home with real objects (pointing, echoing, clapping, TPR) — parent-led physical play is always allowed.
+The parent may join in as a playmate (clap, echo, laugh) but never conducts the lesson — see Parent role below.
 
 The app CANNOT:
 - Animate or move anything on screen (no moving cards, no sweeping/tracking animations, no bouncing).
@@ -64,8 +64,8 @@ Reply with ONLY a JSON object (no markdown fences, no commentary) in exactly thi
 ## RULES (all mandatory)
 1. Exactly 4 weeks. Each week has exactly `frequency_per_week` lessons (Day 1..N from profile.dosage.frequency_per_week, clamped 2–6).
 2. Pillars: **Vision** = 視覺通路刺激 (visual tracking / card gazing — the input channel that feeds reading); **Hear** = listening exposure; **Read** = word/picture recognition; **Spell** = oral output / phonics. Choose by English level:
-   - L0 (exposure mode): Vision + Hear only — high-contrast card gazing (static) & parent-led tracking, spoken exposure & clapping rhythm; no Spell, minimal or no words, no screen.
-   - L1: Vision + Hear + light Read; TPR commands and naming real objects, slow card sweeps.
+   - L0 (exposure mode): Vision + Hear only — high-contrast static card gazing, spoken exposure & clapping rhythm; no Spell, minimal or no words, no screen.
+   - L1: Vision + Hear + light Read; pointing and echo games with picture cards.
    - L2: Hear + Read + first Spell (echoing, letter sounds, clapping syllables); Vision continues via letter shapes.
    - L3: all four; "What is this?" Q&A; phonics first sounds (b-b-ball).
    - L4: all four; role-play dialogue, story retelling, spelling aloud (c-a-t).
@@ -77,7 +77,7 @@ Reply with ONLY a JSON object (no markdown fences, no commentary) in exactly thi
 4. Every activity must be executable in the app classroom (static text + static image cards + spoken voice) and with everyday home objects (toys, paper cards, body parts). Short, slow, encouraging English (max 8 words per sentence in the spoken part). Respect dosage: each session ≤ session_min minutes, screens ≤ screen_cap_min minutes per day. NO songs/music playback, NO on-screen motion — see APP CAPABILITIES.
 5. Target words: age/level-appropriate concrete nouns and verbs — 2–4 words per lesson, English, joined by 、; use — when the activity has no words (physical play / Vision gazing / L0 exposure).
 6. Pace by personality (profile.personality.primary): cautious/sensitive children get more repetition, praise and slower steps; active/explorer children get movement and games.
-7. Follow the content_plan topic and style from the profile (e.g. topic 動物與日常用品, style 韻律拍手 + TPR) — if the style mentions 兒歌, adapt it to spoken chants / clap-along rhythm (no music playback).
+7. Follow the content_plan topic and style from the profile (e.g. topic 動物與日常用品, style 韻律拍手) — if the style mentions 兒歌, adapt it to spoken chants / clap-along rhythm (no music playback).
 8. Week focuses must be distinct and progressive: weeks 1–3 build skills toward the weak pillar and the goal, week 4 is 綜合複習＋升級預覽 (review + upgrade preview).
 9. Write focus/activity/how/goal in Traditional Chinese; words in English.
 10. The child's mistakes list may be empty — never invent mistakes. If mistakes exist, weave one corrective mini-step into week 1.
@@ -85,13 +85,15 @@ Reply with ONLY a JSON object (no markdown fences, no commentary) in exactly thi
 12. BE CONCISE (parents are busy): focus ≤ 25 chars, activity ≤ 18 chars, how ≤ 30 chars, goal ≤ 16 chars, words ≤ 4 items. Whole response under 1400 Chinese characters. No filler, no bullets inside fields.
 
 ## KNOWLEDGE — English levels L0–L4
-| Level | Name | Age ref | Ability | Default content |
-|---|---|---|---|---|
-| L0 | Sound Exposure | 0–18m | Vision + Hear only: card gazing (static), parent-led tracking, spoken exposure; no dialogue, no screen | 字卡凝視、朗讀聲音暴露、拍手節奏、媽媽聲音朗讀 |
-| L1 | Word Awareness | 18–30m | first word awareness; Vision tracking continues | 實物命名、TPR 指令、圖卡追蹤、簡單繪本 |
-| L2 | Phrase Builder | 30–42m | two-word phrases, echoing; Vision via letter shapes | 圖卡配對、節奏跟讀、簡單問答、字母形狀 |
-| L3 | Early Talker | 42–54m | simple dialogue, phonological awareness; Vision via word forms | AI 數字人對話、Phonics 遊戲、主題詞彙、字形指認 |
-| L4 | Pre-A1 Starters | 54–72m | near Cambridge Pre-A1; Vision via reading/writing | 角色扮演、故事複述、拼讀輸出、字卡白板指讀 |
+All levels follow ONE pattern: **the APP does the teaching** — it shows static cards, speaks English via TTS, and listens to the child. **The CHILD responds** — looks, points, echoes, answers, spells, or moves when encouraged. The parent is never part of the teaching: at most a silent onlooker or a playmate who copies the child — never holding cards, naming objects, or drilling.
+
+| Level | Name | Age ref | App does | Child does | Sample activities (zh) |
+|---|---|---|---|---|---|
+| L0 | Sound Exposure | 0–18m | shows high-contrast static word cards; speaks single sounds/words | looks at cards; listens; turns to sound; babbles back | 字卡凝視、聽聲轉頭、聲音暴露、拍手節奏 |
+| L1 | Word Awareness | 18–30m | shows picture + word cards; speaks each word slowly | looks; points at the on-screen picture; echoes the word | 圖卡認讀、跟讀單字、聽聲指圖 |
+| L2 | Phrase Builder | 30–42m | shows picture/word pairs; speaks two-word phrases | matches picture↔word on screen; echoes phrases; claps syllables | 圖卡配對、節奏跟讀、簡單問答 What is this? |
+| L3 | Early Talker | 42–54m | shows words; asks questions; listens for answers | answers aloud; says first sounds; claps syllables | 數字人問答、Phonics 首音、主題詞彙、字形指認 |
+| L4 | Pre-A1 Starters | 54–72m | shows sentence cards + story pictures; listens for reading/spelling | reads words aloud; retells from pictures; spells aloud (c-a-t) | 角色扮演對話、故事複述、拼讀輸出、白板指讀 |
 
 Level is computed by the app from the reading/spelling ladders (R2→L1, R3→L2, R4→L3, R5+→L4, with spelling bumps). Under 18 months the level is locked at L0.
 
@@ -106,7 +108,7 @@ All target words/pictures MUST come from these 6 everyday categories:
 Prefer words the app has PICTURE cards for (cat, dog, ball, banana, apple, milk, water, park, tree, bird, pig, star, twinkle, red, blue, nose, clap, hands, hand, car, story, book, run, touch, this, what, moon, sun, cow, duck, fish, bear, lion, monkey, house, baby, mama, daddy, tv, phone, lamp, clock, bed, bath, door, hat, shirt, dress, socks, shoes, coat, trousers, cake, egg, bread, rice, orange, grapes, cookie, candy, flower, hamster, rabbit, turtle) so the app can show the picture automatically.
 
 ## KNOWLEDGE — Target word bank by level
-- L1: ball, dog, nose, clap, wave, milk, apple, car — concrete self/family nouns + TPR verbs.
+- L1: ball, dog, nose, clap, wave, milk, apple, car — concrete self/family nouns + action words.
 - L2: cat, dog, star, twinkle, red, blue, big, little, jump, run — colors, opposites, animals.
 - L3: what, this, bird, pig, banana, water, touch — question words + theme nouns.
 - L4: park, run, story, tree, book, swim, play — role-play scenes + story verbs.
@@ -129,7 +131,7 @@ The visual input channel that feeds reading: high-contrast big RED cards held at
 - If parent screen acceptance is 0 (不接受): offline / real-object activities only, no screen at all.
 
 ## KNOWLEDGE — Personality pacing (profile.personality.primary; default socializer)
-- explorer 探索者: fast, movement, TPR, short commands, chase games.
+- explorer 探索者: fast, movement, short commands, chase games.
 - observer 觀察者: slow, gentle, long pauses, repeat, no pressure.
 - socializer 社交家: warm, turn-taking, imitation, praise, eye contact.
 - performer 表演者: clap-along spoken chants, repetition, applause, "你真棒".
