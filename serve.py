@@ -66,6 +66,19 @@ SCHEMA = [
   accuracy REAL NOT NULL DEFAULT 0,
   detail JSONB NOT NULL DEFAULT '[]'::jsonb,
   created_at TIMESTAMPTZ DEFAULT now())""",
+"""CREATE TABLE IF NOT EXISTS lesson_answers(
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  lesson_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  week_num INTEGER NOT NULL DEFAULT 0,
+  day TEXT NOT NULL DEFAULT '',
+  activity TEXT NOT NULL DEFAULT '',
+  pillar TEXT NOT NULL DEFAULT '',
+  words TEXT NOT NULL DEFAULT '',
+  word TEXT NOT NULL DEFAULT '',
+  child_said TEXT NOT NULL DEFAULT '',
+  correct BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT now())""",
 ]
 
 # ---------- ElevenLabs 簽名 URL（key 只留在伺服器端，瀏覽器永不接觸 key） ----------
@@ -623,6 +636,30 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 sys.stderr.write('[serve.py] /api/lesson-results error: %s\n' % e)
                 self._send_json(500, {'error': 'server error', 'detail': str(e)[:200]})
             return
+        if path == '/api/lesson-answers':
+            try:
+                with DB_LOCK:
+                    c = self._require_db()
+                    if c is None:
+                        return
+                    uid = user_by_token(c, self._bearer())
+                    if uid is None:
+                        self._send_json(401, {'error': 'unauthorized'})
+                        return
+                    with _cur(c) as cur:
+                        cur.execute(
+                            'SELECT lesson_date,week_num,day,activity,pillar,words,word,child_said,correct,created_at '
+                            'FROM lesson_answers WHERE user_id=%s ORDER BY id DESC LIMIT 200', (uid,))
+                        rows = cur.fetchall()
+                self._send_json(200, {'answers': [{
+                    'lesson_date': str(r[0]), 'week_num': r[1], 'day': r[2], 'activity': r[3],
+                    'pillar': r[4], 'words': r[5], 'word': r[6], 'child_said': r[7],
+                    'correct': r[8], 'created_at': str(r[9]),
+                } for r in rows]})
+            except Exception as e:
+                sys.stderr.write('[serve.py] /api/lesson-answers error: %s\n' % e)
+                self._send_json(500, {'error': 'server error', 'detail': str(e)[:200]})
+            return
         super().do_GET()
 
     # --- API POST ---
@@ -834,6 +871,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                          int(res.get('right_count') or 0), int(res.get('wrong_count') or 0),
                          int(res.get('total') or 0), float(res.get('accuracy') or 0),
                          json.dumps(res.get('detail') or [], ensure_ascii=False)))
+                c.commit()
+                self._send_json(200, {'ok': True})
+                return
+            if path == '/api/lesson-answer':
+                # 即時作答記錄：agent 每次 record_answer tool call 都會立刻寫入（不依賴課堂結束）
+                ans = body.get('answer')
+                if not isinstance(ans, dict):
+                    self._send_json(400, {'error': 'bad answer'}); return
+                with _cur(c) as cur:
+                    cur.execute(
+                        'INSERT INTO lesson_answers(user_id,week_num,day,activity,pillar,words,word,child_said,correct) '
+                        'VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)',
+                        (uid, int(ans.get('week_num') or 0), str(ans.get('day') or '')[:50],
+                         str(ans.get('activity') or '')[:100], str(ans.get('pillar') or '')[:50],
+                         str(ans.get('words') or '')[:200], str(ans.get('word') or '')[:50],
+                         str(ans.get('child_said') or '')[:100], bool(ans.get('correct'))))
                 c.commit()
                 self._send_json(200, {'ok': True})
                 return

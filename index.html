@@ -925,7 +925,17 @@ function recordChildAnswer(spoken){
 function recordAgentAnswer(ok,word,said){   // agent 透過 record_answer 工具回報作答（權威來源）
   agentToolMode=true; lessonHadActivity=true;
   if(ok)lessonStats.right++; else lessonStats.wrong++;
-  lessonStats.attempts.push({word:(word||curWord||''),said:(said||'').slice(0,60),ok:!!ok,ts:Date.now()});
+  var a={word:(word||curWord||''),said:(said||'').slice(0,60),ok:!!ok,ts:Date.now()};
+  lessonStats.attempts.push(a);
+  saveAnswerNow(a);   // 即時寫入資料庫（不依賴課堂結束）
+}
+function saveAnswerNow(a){
+  if(!S.user)return;
+  var tf=(buildAgentContext().today_focus)||{};
+  apiFetch('POST','/api/lesson-answer',{answer:{
+    week_num:tf.week||0, day:tf.day||'', activity:tf.activity||'', pillar:tf.pillar||'', words:tf.words||'',
+    word:a.word, child_said:a.said, correct:a.ok
+  }}).catch(function(){});
 }
 function finishLessonStats(){
   var n=lessonStats.attempts.length;
